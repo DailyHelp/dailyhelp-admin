@@ -3,20 +3,11 @@
 // components/UsersTable.jsx
 import React from 'react';
 import Button from '@/components/ui/Button';
-import type { SortConfig } from '@/types/types';
-
-export interface FeedbackItem {
-  jobId: string;
-  name: string;
-  email: string;
-  icon?: string;
-  reportsDetails: { reason: string; description: string; images?: string[] };
-  timeline: { submitted: { date: string; time?: string } };
-}
+import type { FeedbackListItem } from '@/types/types';
 
 export interface FeedbackJobsTableProps {
-  jobs: FeedbackItem[];
-  onOpenJobDetails: (job: FeedbackItem) => void;
+  jobs: FeedbackListItem[];
+  onOpenJobDetails: (job: FeedbackListItem) => void;
 }
 
 export default function JobsUsersTable({ jobs, onOpenJobDetails }: FeedbackJobsTableProps) {

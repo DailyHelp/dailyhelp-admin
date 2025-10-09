@@ -180,11 +180,7 @@ export const feedbackDataDetails: FeedbackListItem[] = [
     status: 'Pending',
     reason: 'Service not as agreed',
     timeline: {
-      accepted: { date: '-', time: '-' },
-      started: { date: '02 Apr, 2025', time: '-' },
-      ended: { date: '05 Apr, 2025', time: '-' },
       submitted: { date: '05 Apr, 2025', time: '-' },
-      resolution: { date: '-', time: '-' },
     },
   },
 
@@ -199,11 +195,7 @@ export const feedbackDataDetails: FeedbackListItem[] = [
     status: 'Pending',
     reason: 'Service not as agreed',
     timeline: {
-      accepted: { date: '-', time: '-' },
-      started: { date: '02 Apr, 2025', time: '-' },
-      ended: { date: '05 Apr, 2025', time: '-' },
       submitted: { date: '05 Apr, 2025', time: '-' },
-      resolution: { date: '-', time: '-' },
     },
   },
 
@@ -218,11 +210,7 @@ export const feedbackDataDetails: FeedbackListItem[] = [
     status: 'Pending',
     reason: 'Service not as agreed',
     timeline: {
-      accepted: { date: '-', time: '-' },
-      started: { date: '02 Apr, 2025', time: '-' },
-      ended: { date: '05 Apr, 2025', time: '-' },
       submitted: { date: '05 Apr, 2025', time: '-' },
-      resolution: { date: '-', time: '-' },
     },
   },
 
@@ -237,11 +225,7 @@ export const feedbackDataDetails: FeedbackListItem[] = [
     status: 'Pending',
     reason: 'Service not as agreed',
     timeline: {
-      accepted: { date: '-', time: '-' },
-      started: { date: '02 Apr, 2025', time: '-' },
-      ended: { date: '05 Apr, 2025', time: '-' },
       submitted: { date: '05 Apr, 2025', time: '-' },
-      resolution: { date: '-', time: '-' },
     },
   },
 
@@ -256,11 +240,7 @@ export const feedbackDataDetails: FeedbackListItem[] = [
     status: 'Pending',
     reason: 'Service not as agreed',
     timeline: {
-      accepted: { date: '-', time: '-' },
-      started: { date: '02 Apr, 2025', time: '-' },
-      ended: { date: '05 Apr, 2025', time: '-' },
       submitted: { date: '05 Apr, 2025', time: '-' },
-      resolution: { date: '-', time: '-' },
     },
   },
 
@@ -274,10 +254,7 @@ export const feedbackDataDetails: FeedbackListItem[] = [
     amount: '80,000',
     status: 'Completed',
     timeline: {
-      accepted: { date: '-', time: '-' },
-      started: { date: '02 Apr, 2025', time: '-' },
-      ended: { date: '05 Apr, 2025', time: '-' },
-      resolution: { date: '-', time: '-' },
+      submitted: { date: '05 Apr, 2025', time: '-' },
     },
   },
 
@@ -292,11 +269,7 @@ export const feedbackDataDetails: FeedbackListItem[] = [
     status: 'Pending',
     reason: 'Service not as agreed',
     timeline: {
-      accepted: { date: '-', time: '-' },
-      started: { date: '02 Apr, 2025', time: '-' },
-      ended: { date: '05 Apr, 2025', time: '-' },
       submitted: { date: '05 Apr, 2025', time: '-' },
-      resolution: { date: '-', time: '-' },
     },
   },
   {
@@ -310,11 +283,7 @@ export const feedbackDataDetails: FeedbackListItem[] = [
     status: 'Pending',
     reason: 'Service not as agreed',
     timeline: {
-      accepted: { date: '-', time: '-' },
-      started: { date: '02 Apr, 2025', time: '-' },
-      ended: { date: '05 Apr, 2025', time: '-' },
       submitted: { date: '05 Apr, 2025', time: '-' },
-      resolution: { date: '-', time: '-' },
     },
   },
 
@@ -329,11 +298,7 @@ export const feedbackDataDetails: FeedbackListItem[] = [
     status: 'Pending',
     reason: 'Service not as agreed',
     timeline: {
-      accepted: { date: '-', time: '-' },
-      started: { date: '02 Apr, 2025', time: '-' },
-      ended: { date: '05 Apr, 2025', time: '-' },
       submitted: { date: '05 Apr, 2025', time: '-' },
-      resolution: { date: '-', time: '-' },
     },
   },
   {
@@ -347,11 +312,7 @@ export const feedbackDataDetails: FeedbackListItem[] = [
     status: 'Pending',
     reason: 'Service not as agreed',
     timeline: {
-      accepted: { date: '-', time: '-' },
-      started: { date: '02 Apr, 2025', time: '-' },
-      ended: { date: '05 Apr, 2025', time: '-' },
       submitted: { date: '05 Apr, 2025', time: '-' },
-      resolution: { date: '-', time: '-' },
     },
   },
 ];

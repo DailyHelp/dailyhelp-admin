@@ -5,11 +5,11 @@ import JobsTable from '@/components/feedback/JobsTable';
 import UsersPagination from '@/components/feedback/UsersPagination';
 import SlideOverModal from '@/components/ui/SlideOverModal';
 import JobDetails from '@/components/feedback/JobDetails';
-import type { ChatThread } from '@/types/types';
+import type { FeedbackListItem } from '@/types/types';
 
 export default function FeedbackPage() {
   const [openJob, setOpenJob] = useState<boolean>(false);
-  const [selectedJob, setSelectedJob] = useState<any | null>(null);
+  const [selectedJob, setSelectedJob] = useState<FeedbackListItem | null>(null);
 
   const jobsData = feedbackDataDetails;
 

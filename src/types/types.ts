@@ -198,6 +198,20 @@ export interface SettingsCategoryItem {
   jobTips: SettingsTip;
 }
 
+export interface FeedbackListItem {
+  jobId: string;
+  name?: string;
+  email?: string;
+  icon?: IconRef;
+  reportsDetails?: { reason: string; description: string; images?: string[] };
+  timeline: Pick<JobTimeline, 'submitted'>;
+  client?: PersonRef;
+  serviceProvider?: PersonRef;
+  amount?: string;
+  status?: string;
+  reason?: string;
+}
+
 // Shared sorting types
 export type SortDirection = 'asc' | 'desc';
 export type UserSortKey = 'name' | 'email' | 'phone' | 'status' | 'dob';
@@ -240,16 +254,19 @@ export interface ReportEntry {
 }
 
 // Feedback
-export interface FeedbackEntry {
+export interface FeedbackListItem {
   jobId: string;
-  email: string;
-  name: string;
-  icon: IconRef;
-  reportsDetails: { reason: string; description: string };
+  name?: string;
+  email?: string;
+  icon?: IconRef;
+  reportsDetails?: { reason: string; description: string; images?: string[] };
   timeline: Pick<JobTimeline, 'submitted'>;
+  client?: PersonRef;
+  serviceProvider?: PersonRef;
+  amount?: string;
+  status?: string;
+  reason?: string;
 }
-
-export type FeedbackListItem = FeedbackEntry | ReportEntry;
 
 // Team members
 export type TeamRole = string;

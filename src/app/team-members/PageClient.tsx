@@ -56,8 +56,8 @@ export default function TeamMembersProfilePage({ id }: TeamMembersProfilePagePro
     setSuspendOpen(true);
   };
 
-  const handleDeleteClick = (user: TeamMember) => {
-    setSelectedUsers(user);
+  const handleDeleteClick = (role: Role) => {
+    setSelectedRole(role);
     setOpenDelete(true);
   };
 
@@ -147,7 +147,7 @@ export default function TeamMembersProfilePage({ id }: TeamMembersProfilePagePro
 
       {/* Delete */}
       <Modal open={openDelete} onOpenChange={setOpenDelete} title="Delete role">
-        <Delete usersData={users} onSuccess={() => setSuspendOpen(false)} />
+        {selectedRole && <Delete usersData={selectedRole} onSuccess={() => setOpenDelete(false)} />}
       </Modal>
 
       {/* Tabs */}

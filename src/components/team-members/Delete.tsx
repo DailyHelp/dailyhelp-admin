@@ -7,10 +7,10 @@ export default function Delete({
   usersData,
   onSuccess,
 }: {
-  usersData: any;
+  usersData?: any;
   onSuccess?: () => void;
 }) {
-  const [status, setStatus] = useState<string>(usersData.status ?? '');
+  const [status, setStatus] = useState<string>(usersData?.status ?? '');
   const [reason, setReason] = useState<string>('');
   // ✅ Only require reason if suspending
 
@@ -23,9 +23,13 @@ export default function Delete({
     e.preventDefault();
 
     // toggle status
-    const newStatus = status === 'Pending' ? 'Resolved' : 'Pending';
-    setStatus(newStatus);
-    usersData.status = newStatus;
+    if (usersData && typeof usersData === 'object') {
+      const newStatus = status === 'Pending' ? 'Resolved' : 'Pending';
+      setStatus(newStatus);
+      if ('status' in usersData) {
+        usersData.status = newStatus;
+      }
+    }
 
     toast.success(' Role deleted', { duration: 3000 });
 
