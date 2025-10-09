@@ -1,76 +1,83 @@
 'use client';
-import { useEffect, useState } from 'react';
+
+import { useMemo, useState } from 'react';
 import MailIcon from '@/assets/admin-mail-icon.svg';
-import LockIcon from '@/assets/admin-pw-icon.svg';
 import RoleIcon from '@/assets/role-icon.svg';
-import UpdatePasswordModal from './UpdatePasswordModal';
+import LockIcon from '@/assets/admin-pw-icon.svg';
 import SlideOverModal from '@/components/ui/SlideOverModal';
 import Button from '@/components/ui/Button';
+import UpdatePasswordModal from './UpdatePasswordModal';
+import { useAuthStore } from '@/features/auth/store';
+
+const getDisplayName = (
+  fullName?: string | null,
+  firstName?: string | null,
+  lastName?: string | null,
+  email?: string | null,
+) => {
+  if (fullName && fullName.trim().length > 0) {
+    return fullName;
+  }
+  const names = [firstName, lastName].filter(Boolean);
+  if (names.length > 0) {
+    return names.join(' ');
+  }
+  return email ?? 'Admin';
+};
+
+const getInitial = (name: string) => {
+  return name.trim() ? name.trim().charAt(0).toUpperCase() : '?';
+};
 
 export default function AdminProfile() {
-  const [email, setEmail] = useState('');
   const [open, setOpen] = useState(false);
+  const { user, roles } = useAuthStore((state) => ({
+    user: state.user,
+    roles: state.roles,
+  }));
 
-  useEffect(() => {
-    const savedEmail = localStorage.getItem('adminEmail');
-    if (savedEmail) {
-      setEmail(savedEmail);
-    }
-  }, []);
-
-  const getInitial = (email: string) => {
-    if (!email) return '';
-    return email.charAt(0).toUpperCase();
-  };
-
-  function capitalizeFirstLetter(email: string) {
-    if (!email) return '';
-    return email.charAt(0).toUpperCase() + email.slice(1);
-  }
-
-  const name = capitalizeFirstLetter(email);
+  const displayName = useMemo(
+    () => getDisplayName(user?.fullName, user?.firstName, user?.lastName, user?.email),
+    [user],
+  );
+  const initial = useMemo(() => getInitial(displayName), [displayName]);
+  const primaryRole = roles?.[0]?.name ?? 'Administrator';
 
   return (
-    <div className="min-h-screen flex bg-[#F9F9FB] ">
-      <div
-        className="bg-white border border-[#F1F2F4] shadow-md space-y-4
-      rounded-2xl p-[48px] w-[560px] h-[560px] max-w-lg text-center h-full mx-auto mt-32"
-      >
-        <div
-          className="mx-auto w-16 h-16 rounded-full bg-[#121921]
-         text-white flex items-center justify-center text-lg font-bold"
-        >
-          {getInitial(email)}
+    <div className="flex min-h-screen items-center justify-center bg-[#F6F8FA] px-6 py-10">
+      <div className="w-full max-w-[520px] rounded-[32px] border border-[#F1F2F4] bg-white p-12 text-center shadow-md">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#121921] text-3xl font-semibold text-white">
+          {initial}
         </div>
 
-        <h2 className="text-[#121921] text-2xl font-bold">{name.split('@')[0]}</h2>
+        <h2 className="mt-6 text-2xl font-bold text-[#121921]">{displayName}</h2>
 
-        <div className="flex justify-center items-center mt-3 gap-2">
-          <span>
-            <MailIcon className="w-5 h-" />
-          </span>
-          <p className="text-sm text-[#3B4152] ">{email}</p>
-        </div>
-        <div className="flex justify-center items-center mt-3 gap-2">
-          <span>
-            <RoleIcon className="w-5 h-5" />
-          </span>
-          <p className="text-sm text-[#3B4152] ">Customer support</p>
+        <div className="mt-6 space-y-3 text-sm font-medium text-[#3B4152]">
+          <div className="flex items-center justify-center gap-2">
+            <MailIcon className="" />
+            <span>{user?.email ?? '—'}</span>
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <RoleIcon className="" />
+            <span>{primaryRole}</span>
+          </div>
         </div>
 
-        <Button
-          variant="secondary"
-          className="mb-6 px-4 py-1 rounded-lg border border-[#D6DBE7] text-[#017441] text-sm font-semibold hover:bg-green-200 transition"
-          onClick={() => setOpen(true)}
-        >
-          <LockIcon className="inline w-5 h-5" />
-          Update password
-        </Button>
-
-        <SlideOverModal open={open} onOpenChange={setOpen} title="Update password">
-          <UpdatePasswordModal onSuccess={() => setOpen(false)} />
-        </SlideOverModal>
+        <div className="mt-10">
+          <Button
+            variant="secondary"
+            className="flex items-center justify-center gap-2 rounded-full border border-[#017441] bg-transparent px-5 py-3 text-sm font-semibold text-[#017441] transition hover:bg-[#E5F4EE]"
+            onClick={() => setOpen(true)}
+          >
+            <LockIcon className="h-4 w-4" />
+            Update password
+          </Button>
+        </div>
       </div>
+
+      <SlideOverModal open={open} onOpenChange={setOpen} title="Update password">
+        <UpdatePasswordModal onSuccess={() => setOpen(false)} />
+      </SlideOverModal>
     </div>
   );
 }

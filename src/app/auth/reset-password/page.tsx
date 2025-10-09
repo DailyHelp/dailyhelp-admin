@@ -1,159 +1,273 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import DailyHelpLogo from '@/assets/DailyHelpLogo.svg';
 import PasswordIcon from '@/assets/password-icon.svg';
 import EyeIcon from '@/assets/eye-icon.svg';
+import ErrorIcon from '@/assets/error-icon.svg';
 import CheckIcon from '@/assets/check-icon.svg';
 import InformationIcon from '@/assets/info-icon.svg';
 import { EyeOff } from 'lucide-react';
-import ErrorIcon from '@/assets/error-icon.svg';
+import { Button, IconButton, Input } from '@/components/ui';
+import { changePassword, resetPassword } from '@/features/auth/api';
+import { useAuthStore } from '@/features/auth/store';
+import {
+  clearResetSession,
+  readResetSession,
+  type ResetSession,
+} from '@/features/auth/reset-session';
+import type { ApiError } from '@/lib/api-client';
 
-import { toast } from 'sonner';
-import { Button, Input, IconButton } from '@/components/ui';
+const MIN_LENGTH = 6;
+
+const requirements = [
+  {
+    id: 'length',
+    label: `Must be at least ${MIN_LENGTH} characters long`,
+    test: (value: string) => value.length >= MIN_LENGTH,
+  },
+  {
+    id: 'uppercase',
+    label: 'Must contain 1 uppercase letter',
+    test: (value: string) => /[A-Z]/.test(value),
+  },
+  {
+    id: 'symbolOrNumber',
+    label: 'Must contain at least 1 symbol or number 12&#%',
+    test: (value: string) => /[\d!@#$%^&*(),.?":{}|<>]/.test(value),
+  },
+] as const;
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const logout = useAuthStore((state) => state.logout);
+
+  const [session, setSession] = useState<ResetSession | null>(() => readResetSession());
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
+  const [error, setError] = useState('');
+  const [redirecting, setRedirecting] = useState(false);
 
-  const validations = {
-    length: password.length >= 12,
-    uppercase: /[A-Z]/.test(password),
-    symbolOrNumber: /[\d!@#$%^&*(),.?":{}|<>]/.test(password),
-    match: password && password === confirmPassword,
-  };
+  useEffect(() => {
+    setSession(readResetSession());
+  }, []);
 
-  const allValid = Object.values(validations).every(Boolean);
-  const isDisabled = !allValid;
+  const validationStates = useMemo(
+    () =>
+      requirements.map((rule) => ({
+        id: rule.id,
+        label: rule.label,
+        valid: rule.test(password),
+      })),
+    [password],
+  );
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!validations.match) {
-      setPasswordError('Passwords mismatch');
-    } else if (allValid) {
-      setPasswordError('');
-      toast.success('Password completed!', {
-        duration: 3000,
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const allValid = validationStates.every((rule) => rule.valid) && passwordsMatch;
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!session) {
+        throw new Error('Reset session expired.');
+      }
+
+      if (session.type === 'login') {
+        if (!session.oldPassword) {
+          throw new Error('Missing current password for reset.');
+        }
+        return changePassword({
+          token: session.token,
+          oldPassword: session.oldPassword,
+          newPassword: password,
+        });
+      }
+
+      return resetPassword({
+        token: session.token,
+        email: session.email,
+        password,
       });
+    },
+    onSuccess: () => {
+      toast.success('Password updated. Please sign in with your new password.');
+      setRedirecting(true);
+      clearResetSession();
+      setSession(null);
+      logout();
+      router.replace('/auth/login');
+    },
+    onError: (apiError: ApiError | Error) => {
+      const message = apiError.message || 'Unable to reset password. Please try again.';
+      toast.error(message);
+    },
+  });
 
-      router.push('/auth/login');
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!session) {
+      toast.error('Your session has expired. Please try again.');
+      setRedirecting(true);
+      router.push('/auth/forgot-password');
+      return;
     }
+    if (!allValid) {
+      setError('Please satisfy all password requirements.');
+      return;
+    }
+    setError('');
+    mutation.mutate();
   };
 
-  const getIcon = (condition: boolean) =>
-    condition ? (
-      <CheckIcon className="text-green-600 w-5 h-5" />
-    ) : (
-      <InformationIcon className="text-red-500 w-5 h-5" />
-    );
-
-  function validateConfirmPassword(value: string) {
-    setConfirmPassword(value);
-    if (value && value !== password) {
-      setPasswordError('Passwords do not match');
-    } else {
-      setPasswordError('');
+  if (!session) {
+    if (redirecting) {
+      return null;
     }
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F9F9FB] px-4">
+        <div className="w-full max-w-[420px] space-y-6 rounded-[32px] bg-white p-10 text-center shadow-md">
+          <DailyHelpLogo className="mx-auto h-10 w-auto" />
+          <h2 className="text-[28px] font-bold text-[#0E171A]">Reset password</h2>
+          <p className="text-sm font-medium text-[#757C91]">
+            Your reset session has expired. Please request a new code or return to login to start
+            again.
+          </p>
+          <div className="space-y-3">
+            <Button onClick={() => router.push('/auth/forgot-password')} className="w-full">
+              Request new code
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => router.push('/auth/login')}
+              className="w-full"
+            >
+              Return to login
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
+  const heading = 'Reset password';
+  const description =
+    session.type === 'login'
+      ? 'Protect your account by creating a strong password before continuing.'
+      : 'Protect your account by creating a strong password.';
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F9F9FB]">
+    <div className="min-h-screen flex items-center justify-center bg-[#F9F9FB] px-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-[40px] rounded-3xl shadow-md  w-full max-w-md"
+        className="w-full max-w-[420px] space-y-6 rounded-[32px] bg-white p-10 shadow-md"
       >
-        <DailyHelpLogo className="h-10 w-auto " />
+        <DailyHelpLogo className="h-10 w-auto" />
 
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold ">Reset password</h2>
-          <p className="text-sm text-[#757C91]">
-            Protect your account by creating a strong password
+        <div className="space-y-1">
+          <h2 className="text-[28px] font-bold text-[#0E171A]">{heading}</h2>
+          <p className="text-sm font-medium text-[#757C91]">{description}</p>
+        </div>
+
+        <div className="space-y-5">
+          <div>
+            <label className="text-sm font-semibold text-[#757C91]" htmlFor="new-password">
+              New password
+            </label>
+            <div className="relative mt-2">
+              <PasswordIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#757C91]" />
+              <Input
+                id="new-password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Enter new password"
+                className="pl-12 text-sm font-medium text-[#3B4152] placeholder:text-[#A9AFC2] focus:bg-white focus:border-[#017441]"
+                required
+              />
+              <IconButton
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent p-0 text-[#757C91]"
+              >
+                {showPassword ? <EyeOff size={18} /> : <EyeIcon size={18} />}
+              </IconButton>
+            </div>
+            <ul className="mt-3 space-y-2 rounded-xl bg-[#F9F9FB] p-3 text-xs font-semibold">
+              {validationStates.map((rule) => (
+                <li
+                  key={rule.id}
+                  className={clsx('flex items-center gap-2', rule.valid ? 'text-[#27A535]' : 'text-[#757C91]')}
+                >
+                  {rule.valid ? (
+                    <CheckIcon className="h-4 w-4 text-[#27A535]" />
+                  ) : (
+                    <InformationIcon className="h-4 w-4 text-[#F0443A]" />
+                  )}
+                  {rule.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-[#757C91]" htmlFor="confirm-password">
+              Confirm password
+            </label>
+            <div className="relative mt-2">
+              <PasswordIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#757C91]" />
+              <Input
+                id="confirm-password"
+                type={showConfirm ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(event) => {
+                  setConfirmPassword(event.target.value);
+                  if (error) {
+                    setError('');
+                  }
+                }}
+                placeholder="Re-enter password"
+                aria-invalid={!passwordsMatch}
+                className={clsx(
+                  'pl-12 text-sm font-medium text-[#3B4152] placeholder:text-[#A9AFC2] focus:bg-white focus:border-[#017441]',
+                  confirmPassword &&
+                    !passwordsMatch &&
+                    'border border-[#F0443A] bg-[#FFF7F7] text-[#3B4152]',
+                )}
+                required
+              />
+              <IconButton
+                type="button"
+                onClick={() => setShowConfirm((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent p-0 text-[#757C91]"
+              >
+                {showConfirm ? <EyeOff size={18} /> : <EyeIcon size={18} />}
+              </IconButton>
+            </div>
+
+            {confirmPassword && !passwordsMatch && (
+              <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#F0443A]">
+                <ErrorIcon className="h-4 w-4" />
+                Password mismatch
+              </p>
+            )}
+          </div>
+        </div>
+
+        {error && (
+          <p className="flex items-center gap-2 text-xs font-semibold text-[#F0443A]">
+            <ErrorIcon className="h-4 w-4" />
+            {error}
           </p>
-        </div>
+        )}
 
-        {/* Password Input */}
-        <label className="text-[#757C91] text-sm font-bold">New password</label>
-        <div className="relative mb-3 ">
-          <PasswordIcon className="absolute left-3 top-6 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <Input
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full pl-9 p-[12px] bg-[#F9F9FB] text-sm rounded-xl focus:outline-none focus:ring-none"
-            required
-          />
-          <IconButton
-            type="button"
-            className="absolute top-6 transform -translate-y-1/2 right-3 text-gray-500 p-0 bg-transparent"
-            onClick={() => setShowPassword(!showPassword)}
-          >
-            {showPassword ? <EyeOff size={18} /> : <EyeIcon size={18} />}
-          </IconButton>
-
-          {/* Requirements */}
-          <ul className="space-y-1 text-xs bg-[#F9F9FB] p-2 rounded-lg my-1">
-            <li
-              className={`flex items-center space-x-1 ${validations.length ? 'text-[#27A535]' : 'text-[#757C91]'}`}
-            >
-              {getIcon(validations.length)} Must be at least 12 characters long
-            </li>
-            <li
-              className={`flex items-center space-x-1 ${validations.uppercase ? 'text-[#27A535]' : 'text-[#757C91]'}`}
-            >
-              {getIcon(validations.uppercase)} Must contain 1 uppercase
-            </li>
-            <li
-              className={`flex items-center space-x-1 ${validations.symbolOrNumber ? 'text-[#27A535]' : 'text-[#757C91]'}`}
-            >
-              {getIcon(validations.symbolOrNumber)} Must contain at least 1 symbol or number 12&#%
-            </li>
-          </ul>
-        </div>
-
-        {/* Confirm Password */}
-        <label className="text-[#757C91] text-sm font-bold">Confirm password</label>
-        <div className="relative mb-3 space-y-1">
-          <PasswordIcon className="absolute left-3 top-6 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-
-          <Input
-            type={showConfirm ? 'text' : 'password'}
-            value={confirmPassword}
-            onChange={(e) => validateConfirmPassword(e.target.value)}
-            className={`w-full pl-9 p-[12px] bg-[#F9F9FB] text-sm rounded-xl focus:outline-none focus:ring-none
-                ${passwordError ? 'border border-red-500 bg-red-50 font-semibold text-[#3B4152]' : 'border border-transparent'}`}
-            required
-          />
-          <IconButton
-            type="button"
-            className="absolute top-6 transform -translate-y-1/2 right-3 text-gray-500 p-0 bg-transparent"
-            onClick={() => setShowConfirm(!showConfirm)}
-          >
-            {showConfirm ? <EyeOff size={18} /> : <EyeIcon size={18} />}
-          </IconButton>
-          {passwordError && (
-            <span className="text-red-500 text-xs flex space-x-1">
-              <ErrorIcon className="" />
-              <p>{passwordError}</p>
-            </span>
-          )}
-        </div>
-
-        {/* Submit */}
-        <Button
-          type="submit"
-          disabled={isDisabled}
-          className={`w-full p-[11px]  rounded-lg text-[#A9AFC2] text-sm font-bold  ${
-            isDisabled
-              ? 'bg-[#E5EAE7FF] cursor-not-allowed'
-              : 'bg-[#017441] text-white cursor-pointer '
-          }`}
-        >
-          Reset Password
+        <Button type="submit" disabled={!allValid || mutation.isPending} className="w-full">
+          {mutation.isPending ? 'Saving password...' : 'Save password'}
         </Button>
       </form>
     </div>

@@ -1,230 +1,255 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import clsx from 'clsx';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import PasswordIcon from '@/assets/password-icon.svg';
-import EyeIcon from '@/assets/eye-icon.svg';
+import ErrorIcon from '@/assets/error-icon.svg';
 import CheckIcon from '@/assets/check-icon.svg';
 import InformationIcon from '@/assets/info-icon.svg';
-import { EyeOff } from 'lucide-react';
-import ErrorIcon from '@/assets/error-icon.svg';
+import { Eye, EyeOff } from 'lucide-react';
+import { Button, IconButton, Input } from '@/components/ui';
+import { changePassword } from '@/features/auth/api';
+import { useAuthStore } from '@/features/auth/store';
+import type { ApiError } from '@/lib/api-client';
 
-import { toast } from 'sonner';
-import { Button, Input, IconButton } from '@/components/ui';
+const MIN_LENGTH = 6;
+
+const validationRules = [
+  {
+    id: 'length',
+    test: (value: string) => value.length >= MIN_LENGTH,
+    label: `Must be at least ${MIN_LENGTH} characters long`,
+  },
+  {
+    id: 'uppercase',
+    test: (value: string) => /[A-Z]/.test(value),
+    label: 'Must contain 1 uppercase letter',
+  },
+  {
+    id: 'symbolOrNumber',
+    test: (value: string) => /[\d!@#$%^&*(),.?":{}|<>]/.test(value),
+    label: 'Must contain at least 1 symbol or number 12&#%',
+  },
+] as const;
 
 export interface UpdatePasswordModalProps {
   onSuccess: () => void;
 }
 
 export default function UpdatePasswordModal({ onSuccess }: UpdatePasswordModalProps) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [currentError, setCurrentError] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const correctPassword = '123456789';
+  const validations = useMemo(
+    () =>
+      validationRules.map((rule) => ({
+        id: rule.id,
+        label: rule.label,
+        valid: rule.test(newPassword),
+      })),
+    [newPassword],
+  );
 
-  const validations = {
-    length: newPassword.length >= 12,
-    uppercase: /[A-Z]/.test(newPassword),
-    symbolOrNumber: /[\d!@#$%^&*(),.?":{}|<>]/.test(newPassword),
-    match: newPassword && newPassword === confirmPassword,
-    currentPasswordMatch: currentPassword && currentPassword === correctPassword,
-  };
+  const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
+  const canSubmit =
+    validations.every((rule) => rule.valid) && passwordsMatch && currentPassword.trim().length > 0;
 
-  const allValid = Object.values(validations).every(Boolean);
-  const isDisabled = !allValid;
+  const mutation = useMutation({
+    mutationFn: () => {
+      if (!accessToken) {
+        throw new Error('You need to be signed in to update your password.');
+      }
 
-  const handleCancel = () => {
+      return changePassword({
+        token: accessToken,
+        oldPassword: currentPassword,
+        newPassword,
+      });
+    },
+    onSuccess: () => {
+      toast.success('Password updated successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setError('');
+      onSuccess();
+    },
+    onError: (err: ApiError | Error) => {
+      const message = err.message || 'Unable to update password. Please try again.';
+      toast.error(message);
+    },
+  });
+
+  const resetState = () => {
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
     setError('');
-    // onSuccess(); // ✅ close modal
+    setShowCurrent(false);
+    setShowNew(false);
+    setShowConfirm(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (error || currentError || !allValid) {
-      return; // prevent submission if errors exist
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit) {
+      setError('Please satisfy all password requirements.');
+      return;
     }
-
-    setLoading(true);
-
-    try {
-      await fakeUpdatePasswordAPI({ currentPassword, newPassword });
-      toast.success('Password updated!', { duration: 3000 });
-      onSuccess();
-    } catch (err) {
-      setError('Incorrect current password or server error.');
-    } finally {
-      setLoading(false);
-    }
+    setError('');
+    mutation.mutate();
   };
 
-  const getIcon = (condition: boolean) =>
-    condition ? (
-      <CheckIcon className="text-green-600 w-5 h-5" />
-    ) : (
-      <InformationIcon className="text-red-500 w-5 h-5" />
-    );
+  const handleCancel = () => {
+    resetState();
+    onSuccess();
+  };
 
-  return (
-    <div className="h-full">
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col h-full focus:outline-none focus:ring-none"
-      >
-        <div className="px-4 py-4">
-          {/* Current Password Input */}
-          <label className="text-[#757C91] text-sm font-bold">Current password</label>
-          <div className="relative mb-3 ">
-            <PasswordIcon className="absolute left-3 top-6 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <Input
-              type={showCurrentPassword ? 'text' : 'password'}
-              value={currentPassword}
-              onChange={(e) => {
-                const value = e.target.value;
-                setCurrentPassword(value);
-                setCurrentError(
-                  value && value !== correctPassword ? 'Current password is incorrect' : '',
-                );
-              }}
-              className={`w-full pl-9 p-[12px] bg-[#F9F9FB] text-sm rounded-xl focus:outline-none focus:ring-none
-                ${currentError ? 'border border-red-500 bg-red-50 font-semibold text-[#3B4152]' : 'border border-transparent'}`}
-              required
-            />
-            <IconButton
-              type="button"
-              className="absolute top-6 transform -translate-y-1/2 right-3 text-gray-500 p-0 bg-transparent"
-              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-            >
-              {showCurrentPassword ? <EyeOff size={18} /> : <EyeIcon size={18} />}
-            </IconButton>
-            {currentError && (
-              <span className="text-red-500 text-xs flex space-x-1">
-                <ErrorIcon className="" />
-                <p>{currentError}</p>
-              </span>
-            )}
-          </div>
-
-          {/* New Password Input */}
-          <label className="text-[#757C91] text-sm font-bold">New password</label>
-          <div className="relative mb-3 ">
-            <PasswordIcon className="absolute left-3 top-6 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <Input
-              type={showPassword ? 'text' : 'password'}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full pl-9 p-[12px] bg-[#F9F9FB] text-sm rounded-xl focus:outline-none focus:ring-none"
-              required
-            />
-            <IconButton
-              type="button"
-              className="absolute top-6 transform -translate-y-1/2 right-3 text-gray-500 p-0 bg-transparent"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? <EyeOff size={18} /> : <EyeIcon size={18} />}
-            </IconButton>
-
-            {/* Requirements */}
-            <ul className="space-y-1 text-xs bg-[#F9F9FB] p-2 rounded-lg my-1">
-              <li
-                className={`flex items-center space-x-1 ${validations.length ? 'text-[#27A535]' : 'text-[#757C91]'}`}
-              >
-                {getIcon(validations.length)} Must be at least 12 characters long
-              </li>
-              <li
-                className={`flex items-center space-x-1 ${validations.uppercase ? 'text-[#27A535]' : 'text-[#757C91]'}`}
-              >
-                {getIcon(validations.uppercase)} Must contain 1 uppercase
-              </li>
-              <li
-                className={`flex items-center space-x-1 ${validations.symbolOrNumber ? 'text-[#27A535]' : 'text-[#757C91]'}`}
-              >
-                {getIcon(validations.symbolOrNumber)} Must contain at least 1 symbol or number 12&#%
-              </li>
-            </ul>
-          </div>
-
-          {/* Confirm Password */}
-          <label className="text-[#757C91] text-sm font-bold">Confirm password</label>
-          <div className="relative mb-3 space-y-1">
-            <PasswordIcon className="absolute left-3 top-6 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-
-            <Input
-              type={showConfirm ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={(e) => {
-                const value = e.target.value;
-                setConfirmPassword(value);
-                setError(value && value !== newPassword ? 'Passwords mismatch' : '');
-              }}
-              className={`w-full pl-9 p-[12px] bg-[#F9F9FB] text-sm rounded-xl focus:outline-none focus:ring-none
-                ${error ? 'border border-red-500 bg-red-50 font-semibold text-[#3B4152]' : 'border border-transparent'}`}
-              required
-            />
-            <IconButton
-              type="button"
-              className="absolute top-6 transform -translate-y-1/2 right-3 text-gray-500 p-0 bg-transparent"
-              onClick={() => setShowConfirm(!showConfirm)}
-            >
-              {showConfirm ? <EyeOff size={18} /> : <EyeIcon size={18} />}
-            </IconButton>
-            {error && (
-              <span className="text-red-500 text-xs flex space-x-1">
-                <ErrorIcon className="" />
-                <p>{error}</p>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Submit */}
-        <div className="mt-auto bg-[#F9F9FB] px-5 py-6 flex border-t border-[#F1F2F4] ">
-          <div className="ml-auto space-x-4">
-            <Button type="button" onClick={handleCancel} variant="secondary" className="p-[11px]">
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isDisabled}
-              className={`${
-                isDisabled
-                  ? 'bg-[#E5EAE7FF] cursor-not-allowed text-[#A9AFC2]'
-                  : 'bg-[#017441] text-white cursor-pointer'
-              }`}
-            >
-              Save password
-            </Button>
-          </div>
-        </div>
-      </form>
+  const renderPasswordField = ({
+    id,
+    label,
+    value,
+    onChange,
+    placeholder,
+    isVisible,
+    toggleVisibility,
+  }: {
+    id: string;
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    placeholder: string;
+    isVisible: boolean;
+    toggleVisibility: () => void;
+  }) => (
+    <div>
+      <label className="text-sm font-semibold text-[#757C91]" htmlFor={id}>
+        {label}
+      </label>
+      <div className="relative mt-2">
+        <PasswordIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#B0B8C9]" />
+        <Input
+          id={id}
+          type={isVisible ? 'text' : 'password'}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="pl-12 text-sm font-medium text-[#3B4152] placeholder:text-[#A9AFC2] bg-[#F5F7FB] border border-transparent hover:border-[#D6DBE7] focus:bg-white focus:border-[#017441]"
+          required
+        />
+        <IconButton
+          type="button"
+          onClick={toggleVisibility}
+          className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent p-0 text-[#757C91]"
+        >
+          {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+        </IconButton>
+      </div>
     </div>
   );
-}
 
-// temporary placeholder for backend call
-const fakeUpdatePasswordAPI = ({
-  currentPassword,
-  newPassword,
-}: {
-  currentPassword: string;
-  newPassword: string;
-}): Promise<void> => {
-  return new Promise<void>((resolve, reject) => {
-    setTimeout(() => {
-      if (currentPassword === '123456789') {
-        resolve();
-      } else {
-        reject();
-      }
-    }, 1500);
-  });
-};
+  return (
+    <form onSubmit={handleSubmit} className="flex h-full flex-col">
+      <div className="space-y-6">
+        {renderPasswordField({
+          id: 'current-password',
+          label: 'Current password',
+          value: currentPassword,
+          onChange: setCurrentPassword,
+          placeholder: 'Enter current password',
+          isVisible: showCurrent,
+          toggleVisibility: () => setShowCurrent((prev) => !prev),
+        })}
+
+        <div>
+          {renderPasswordField({
+            id: 'new-password',
+            label: 'New password',
+            value: newPassword,
+            onChange: setNewPassword,
+            placeholder: 'Enter new password',
+            isVisible: showNew,
+            toggleVisibility: () => setShowNew((prev) => !prev),
+          })}
+
+          <ul className="mt-3 space-y-2 rounded-xl bg-[#EEF2FA] p-3 text-xs font-semibold">
+            {validations.map((rule) => (
+              <li
+                key={rule.id}
+                className={clsx(
+                  'flex items-center gap-2',
+                  rule.valid ? 'text-[#017441]' : 'text-[#B0B8C9]',
+                )}
+              >
+                {rule.valid ? (
+                  <CheckIcon className="h-4 w-4 text-[#017441]" />
+                ) : (
+                  <InformationIcon className="h-4 w-4 text-[#B0B8C9]" />
+                )}
+                {rule.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          {renderPasswordField({
+            id: 'confirm-password',
+            label: 'Confirm password',
+            value: confirmPassword,
+            onChange: (value) => {
+              setConfirmPassword(value);
+              if (error) {
+                setError('');
+              }
+            },
+            placeholder: 'Re-enter password',
+            isVisible: showConfirm,
+            toggleVisibility: () => setShowConfirm((prev) => !prev),
+          })}
+
+          {confirmPassword && !passwordsMatch && (
+            <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#F0443A]">
+              <ErrorIcon className="h-4 w-4" />
+              Password mismatch
+            </p>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <p className="mt-4 flex items-center gap-2 text-xs font-semibold text-[#F0443A]">
+          <ErrorIcon className="h-4 w-4" />
+          {error}
+        </p>
+      )}
+
+      <div className="mt-auto flex items-center justify-end gap-3 border-t border-[#F1F2F4] pt-5">
+        <Button
+          type="button"
+          onClick={handleCancel}
+          variant="secondary"
+          className="rounded-full px-6 text-sm font-semibold"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          disabled={!canSubmit || mutation.isPending}
+          className="rounded-full px-6 text-sm font-semibold"
+        >
+          {mutation.isPending ? 'Saving...' : 'Save password'}
+        </Button>
+      </div>
+    </form>
+  );
+}

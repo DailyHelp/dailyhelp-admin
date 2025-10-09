@@ -30,7 +30,7 @@ export default function SlideOverModal({
             overflow-auto rounded-l-xl
           "
         >
-          <div className="flex justify-between items-center p-4 border-b border-[#F1F2F4]">
+          <div className="flex justify-between items-center px-6 py-5 border-b border-[#F1F2F4]">
             <Dialog.Title className="text-[16px] font-bold ">{title}</Dialog.Title>
             <Dialog.Close asChild>
               <Button variant="secondary" className="p-3">
@@ -39,7 +39,9 @@ export default function SlideOverModal({
             </Dialog.Close>
           </div>
 
-          <div className=" h-[91.5%] ">{children}</div>
+          <div className="h-[91.5%] overflow-auto">
+            <div className="px-6 py-6">{children}</div>
+          </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

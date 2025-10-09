@@ -7,11 +7,11 @@ import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import DailyHelpLogo from '@/assets/DailyHelpLogo.svg';
 import { Button, Input } from '@/components/ui';
-import { verifyOtp, resendLoginOtp } from '@/features/auth/api';
+import { resendResetOtp, verifyResetOtp } from '@/features/auth/api';
 import { useAuthStore } from '@/features/auth/store';
 import { clearResetSession, saveResetSession } from '@/features/auth/reset-session';
 import type { ApiError } from '@/lib/api-client';
-import type { VerifyOtpPayload, ResendOtpPayload } from '@/features/auth/types';
+import type { ResendResetOtpPayload, VerifyResetOtpPayload } from '@/features/auth/types';
 
 const OTP_LENGTH = 6;
 
@@ -24,18 +24,17 @@ const maskEmail = (value: string) => {
   return `${visible}***@${domain}`;
 };
 
-export default function VerifyCodePage() {
+export default function ForgotPasswordVerifyPage() {
   const router = useRouter();
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
   const [timer, setTimer] = useState(60);
   const [hasError, setHasError] = useState(false);
-  const { pendingLogin, completeLogin, updatePendingPin, clearPendingLogin } = useAuthStore(
+  const { pendingForgotPassword, updatePendingForgotPin, clearPendingForgotPassword } = useAuthStore(
     (state) => ({
-      pendingLogin: state.pendingLogin,
-      completeLogin: state.completeLogin,
-      updatePendingPin: state.updatePendingPin,
-      clearPendingLogin: state.clearPendingLogin,
+      pendingForgotPassword: state.pendingForgotPassword,
+      updatePendingForgotPin: state.updatePendingForgotPin,
+      clearPendingForgotPassword: state.clearPendingForgotPassword,
     }),
   );
   const [storeHydrated, setStoreHydrated] = useState(
@@ -52,8 +51,8 @@ export default function VerifyCodePage() {
     };
   }, [storeHydrated]);
 
-  const email = pendingLogin?.email ?? '';
-  const pinId = pendingLogin?.pinId ?? '';
+  const email = pendingForgotPassword?.email ?? '';
+  const pinId = pendingForgotPassword?.pinId ?? '';
   const otpValue = otp.join('');
   const isOtpComplete = otpValue.length === OTP_LENGTH && !otp.includes('');
 
@@ -61,10 +60,10 @@ export default function VerifyCodePage() {
     if (!storeHydrated) {
       return;
     }
-    if (!pendingLogin) {
-      // router.replace('/auth/login');
+    if (!pendingForgotPassword) {
+      // router.replace('/auth/forgot-password');
     }
-  }, [pendingLogin, router, storeHydrated]);
+  }, [pendingForgotPassword, router, storeHydrated]);
 
   useEffect(() => {
     if (timer <= 0) {
@@ -78,36 +77,21 @@ export default function VerifyCodePage() {
   }, [timer]);
 
   const verifyMutation = useMutation({
-    mutationFn: (payload: VerifyOtpPayload) => verifyOtp(payload),
+    mutationFn: (payload: VerifyResetOtpPayload) => verifyResetOtp(payload),
     onSuccess: (response) => {
       setHasError(false);
       clearResetSession();
-      if (pendingLogin && response.data.requiresPasswordReset) {
-        if (!response.data.accessToken) {
-          toast.error('Unable to start password reset. Please try again.');
-          return;
-        }
+      const targetEmail = pendingForgotPassword?.email ?? email;
+      if (targetEmail) {
         saveResetSession({
-          token: response.data.accessToken,
-          email: pendingLogin.email,
-          type: 'login',
-          oldPassword: pendingLogin.password,
+          token: response.data,
+          email: targetEmail,
+          type: 'forgot',
         });
-        clearPendingLogin();
-        toast.success('Create a new password to finish signing in.');
-        router.push('/auth/reset-password');
-        return;
       }
-
-      clearPendingLogin();
-      toast.success('Login successful.');
-      completeLogin({
-        accessToken: response.data.accessToken,
-        user: response.data.user,
-        roles: response.data.roles,
-        permissions: response.data.permissions,
-      });
-      router.push('/dashboard');
+      clearPendingForgotPassword();
+      toast.success('Code verified. Create your new password.');
+      router.push('/auth/reset-password');
     },
     onError: (error: ApiError | Error) => {
       const message = error.message || 'Invalid verification code. Please try again.';
@@ -119,9 +103,9 @@ export default function VerifyCodePage() {
   });
 
   const resendMutation = useMutation({
-    mutationFn: (payload: ResendOtpPayload) => resendLoginOtp(payload),
+    mutationFn: (payload: ResendResetOtpPayload) => resendResetOtp(payload),
     onSuccess: (response) => {
-      updatePendingPin(response.data.pinId);
+      updatePendingForgotPin(response.data.pinId);
       setTimer(60);
       setOtp(Array(OTP_LENGTH).fill(''));
       setHasError(false);
@@ -172,9 +156,9 @@ export default function VerifyCodePage() {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!pendingLogin) {
-      toast.error('Your session has expired. Please log in again.');
-      // router.replace('/auth/login');
+    if (!pendingForgotPassword) {
+      toast.error('Your session has expired. Please start again.');
+      // router.replace('/auth/forgot-password');
       return;
     }
     if (!isOtpComplete) {
@@ -184,23 +168,23 @@ export default function VerifyCodePage() {
     }
     setHasError(false);
     verifyMutation.mutate({
-      email: pendingLogin.email,
-      pinId: pendingLogin.pinId,
+      email: pendingForgotPassword.email,
+      pinId: pendingForgotPassword.pinId,
       otp: otpValue,
     });
   };
 
   const handleResend = () => {
-    if (!pendingLogin || timer > 0) {
+    if (!pendingForgotPassword || timer > 0) {
       return;
     }
     resendMutation.mutate({
-      email: pendingLogin.email,
-      pinId: pendingLogin.pinId,
+      email: pendingForgotPassword.email,
+      pinId: pendingForgotPassword.pinId,
     });
   };
 
-  if (!storeHydrated || !pendingLogin) {
+  if (!storeHydrated || !pendingForgotPassword) {
     return null;
   }
 
@@ -215,7 +199,7 @@ export default function VerifyCodePage() {
         <div className="space-y-1">
           <h2 className="text-[28px] font-bold text-[#0E171A]">Enter code</h2>
           <p className="text-sm font-medium text-[#757C91]">
-            Enter the 6-digit code sent to {maskEmail(email)} to continue.
+            Enter the 6-digit code sent to {maskEmail(email)} to reset your password.
           </p>
         </div>
 
@@ -243,11 +227,7 @@ export default function VerifyCodePage() {
           ))}
         </div>
 
-        <Button
-          type="submit"
-          disabled={!isOtpComplete || verifyMutation.isPending}
-          className="w-full"
-        >
+        <Button type="submit" disabled={!isOtpComplete || verifyMutation.isPending} className="w-full">
           {verifyMutation.isPending ? 'Verifying...' : 'Verify'}
         </Button>
 
