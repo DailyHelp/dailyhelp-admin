@@ -202,12 +202,15 @@ export default function ResetPasswordPage() {
               {validationStates.map((rule) => (
                 <li
                   key={rule.id}
-                  className={clsx('flex items-center gap-2', rule.valid ? 'text-[#27A535]' : 'text-[#757C91]')}
+                  className={clsx(
+                    'flex items-center gap-2',
+                    rule.valid ? 'text-[#27A535]' : 'text-[#757C91]',
+                  )}
                 >
                   {rule.valid ? (
-                    <CheckIcon className="h-4 w-4 text-[#27A535]" />
+                    <CheckIcon className=" text-[#27A535]" />
                   ) : (
-                    <InformationIcon className="h-4 w-4 text-[#F0443A]" />
+                    <InformationIcon className=" text-[#F0443A]" />
                   )}
                   {rule.label}
                 </li>
@@ -252,7 +255,7 @@ export default function ResetPasswordPage() {
 
             {confirmPassword && !passwordsMatch && (
               <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#F0443A]">
-                <ErrorIcon className="h-4 w-4" />
+                <ErrorIcon className="" />
                 Password mismatch
               </p>
             )}
@@ -261,7 +264,7 @@ export default function ResetPasswordPage() {
 
         {error && (
           <p className="flex items-center gap-2 text-xs font-semibold text-[#F0443A]">
-            <ErrorIcon className="h-4 w-4" />
+            <ErrorIcon className="" />
             {error}
           </p>
         )}

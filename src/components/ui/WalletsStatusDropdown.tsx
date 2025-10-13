@@ -27,13 +27,13 @@ export default function WalletStatusDropdown({
         <option value="" className="bg-white">
           Status
         </option>
-        <option value="Pending" className="bg-white">
+        <option value="PENDING" className="bg-white">
           Pending
         </option>
-        <option value="Successful" className="bg-white">
+        <option value="SUCCESS" className="bg-white">
           Successful
         </option>
-        <option value="Failed" className="bg-white">
+        <option value="FAILED" className="bg-white">
           Failed
         </option>
       </select>

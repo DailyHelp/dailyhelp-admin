@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
+import Image from 'next/image';
 import StatusIcon from '@/assets/status-icon.svg';
 
 export interface JobStatusDropdownProps {
@@ -12,11 +13,17 @@ export interface JobStatusDropdownProps {
 export default function JobStatusDropdown({ value, onChange, className }: JobStatusDropdownProps) {
   return (
     <div
-      className={`relative inline-block border border-[#D6DBE7] rounded-xl px-3 bg-[#F9F9FB] ${className ?? ''}`}
+      className={`relative inline-flex items-center gap-2 rounded-xl border border-[#D6DBE7] bg-white px-3 ${
+        className ?? ''
+      }`}
     >
-      <StatusIcon className="text-[#757C91] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+      {typeof StatusIcon === 'string' ? (
+        <Image src={StatusIcon} alt="Status" width={16} height={16} />
+      ) : (
+        <StatusIcon className=" text-[#99A1B3]" />
+      )}
       <select
-        className="appearance-none w-32 text-[#3B4152] text-sm focus:outline-none focus:ring-none py-2 pl-7"
+        className="h-9 w-32 appearance-none bg-transparent text-sm font-medium text-[#3B4152] focus:outline-none"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -26,8 +33,8 @@ export default function JobStatusDropdown({ value, onChange, className }: JobSta
         <option value="Pending" className="bg-white">
           Pending
         </option>
-        <option value="InProgress" className="bg-white">
-          InProgress
+        <option value="In-progress" className="bg-white">
+          In-progress
         </option>
         <option value="Canceled">Canceled</option>
         <option value="Disputed">Disputed</option>
@@ -35,7 +42,7 @@ export default function JobStatusDropdown({ value, onChange, className }: JobSta
       </select>
 
       {/* Custom icon */}
-      <ChevronDown className="text-[#757C91] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <ChevronDown className=" text-[#99A1B3]" />
     </div>
   );
 }

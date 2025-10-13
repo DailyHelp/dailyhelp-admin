@@ -228,12 +228,12 @@ export default function ProvidersProfilePage({ id }: { id: string }) {
             <WalletsFiltersBar />
           </div>
 
-          <WalletsTable wallet={user.wallet} />
+          <WalletsTable wallet={user?.wallet} />
           <UsersPagination
             currentPage={1}
             totalPages={1}
-            totalItems={user.wallet?.[0]?.transactions?.length ?? 0}
-            itemsPerPage={user.wallet?.[0]?.transactions?.length ?? 0}
+            totalItems={user?.wallet?.[0]?.transactions?.length ?? 0}
+            itemsPerPage={user?.wallet?.[0]?.transactions?.length ?? 0}
             onPageChange={() => {}}
           />
         </div>

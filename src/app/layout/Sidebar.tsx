@@ -28,13 +28,13 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="w-64 h-screen bg-[#F3F4F6] text-[#757C91] p-4 fixed top-0 left-0">
-      <div>
+    <div className="fixed top-0 left-0 h-screen w-64 bg-[#F3F4F6] p-4 text-[#757C91]">
+      <div className="px-2">
         <DailyHelpLogo className="h-10 w-auto" />
       </div>
-      <nav className="flex flex-col gap-2 text-[#757C91] font-medium">
+      <nav className="mt-8 flex flex-col gap-2 text-[#757C91] font-medium">
         {sidebarLinks.map(({ label, href, icon: Icon }) => {
-          const isActive = pathname === href;
+          const isActive = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <a
               key={href}

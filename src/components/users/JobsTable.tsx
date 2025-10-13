@@ -2,9 +2,8 @@
 
 import React from 'react';
 import JobsStatusBadge from './JobsStatusBadge';
-import { ChevronsUpDown } from 'lucide-react'; // icons
+import { ChevronsUpDown } from 'lucide-react';
 import type { JobItem, SortConfig, JobSortKey } from '@/types/types';
-import Button from '@/components/ui/Button';
 
 export type JobsTableSortConfig = SortConfig<JobSortKey>;
 
@@ -21,13 +20,13 @@ export default function JobsUsersTable({
   sortConfig,
   onOpenJobDetails,
 }: JobsTableProps) {
-  const getSortIcon = (columnKey: JobSortKey) => {
-    if (sortConfig.key !== columnKey)
-      return <ChevronsUpDown size={16} className="text-[#C0C5D6]" />;
-    return sortConfig.direction === 'asc' ? (
-      <ChevronsUpDown size={16} />
-    ) : (
-      <ChevronsUpDown size={16} />
+  const renderSortIcon = (columnKey: JobSortKey) => {
+    const isActive = sortConfig.key === columnKey;
+    return (
+      <ChevronsUpDown
+        size={16}
+        className={isActive ? 'text-[#017441]' : 'text-[#C0C5D6]'}
+      />
     );
   };
 
@@ -40,62 +39,83 @@ export default function JobsUsersTable({
   };
 
   return (
-    <div className="mx-6 overflow-x-auto">
-      <table className="w-full min-w-[720px] text-left border-collapse" role="table" aria-label="User jobs table">
-        <thead className="bg-gray-50 uppercase text-xs text-[#757C91]  rounded-2xl">
+    <div className="overflow-hidden rounded-3xl border border-[#EAECF5] bg-white">
+      <table className="w-full min-w-[720px] border-collapse" role="table" aria-label="User jobs table">
+        <thead className="bg-[#F5F6FA] text-xs font-semibold uppercase text-[#757C91]">
           <tr>
-            <th className="px-6 py-3   cursor-pointer" onClick={() => handleSort('jobId')}>
-              <span className="flex items-center gap-2">job id {getSortIcon('jobId')}</span>
-            </th>
-            <th className="px-6 py-3  cursor-pointer" onClick={() => handleSort('serviceProvider')}>
-              <span className="flex items-center gap-2">
-                {' '}
-                Service Provider{getSortIcon('serviceProvider')}
+            <th className="px-6 py-4 cursor-pointer" onClick={() => handleSort('jobId')}>
+              <span className="flex items-center gap-2 text-[#47516B]">
+                Job Id {renderSortIcon('jobId')}
               </span>
             </th>
-            <th className="px-6 py-3 cursor-pointer" onClick={() => handleSort('amount')}>
-              <span className="flex items-center gap-2">Amount {getSortIcon('amount')}</span>
+            <th className="px-6 py-4 cursor-pointer" onClick={() => handleSort('serviceProvider')}>
+              <span className="flex items-center gap-2 text-[#47516B]">
+                Service Provider
+                {renderSortIcon('serviceProvider')}
+              </span>
             </th>
-            <th className="px-6 py-3 cursor-pointer" onClick={() => handleSort('startDate')}>
-              <span className="flex items-center gap-2">Start date {getSortIcon('startDate')}</span>
+            <th className="px-6 py-4 cursor-pointer" onClick={() => handleSort('amount')}>
+              <span className="flex items-center gap-2 text-[#47516B]">
+                Amount
+                {renderSortIcon('amount')}
+              </span>
             </th>
-            <th className="px-6 py-3 cursor-pointer" onClick={() => handleSort('endDate')}>
-              <span className="flex items-center gap-2">end date {getSortIcon('endDate')}</span>
+            <th className="px-6 py-4 cursor-pointer" onClick={() => handleSort('startDate')}>
+              <span className="flex items-center gap-2 text-[#47516B]">
+                Start Date
+                {renderSortIcon('startDate')}
+              </span>
             </th>
-            <th className="px-6 py-3 cursor-pointer" onClick={() => handleSort('status')}>
-              <span className="flex items-center gap-2">status{getSortIcon('status')}</span>
+            <th className="px-6 py-4 cursor-pointer" onClick={() => handleSort('endDate')}>
+              <span className="flex items-center gap-2 text-[#47516B]">
+                End Date
+                {renderSortIcon('endDate')}
+              </span>
             </th>
-            <th className="px-6 py-3">Action</th>
+            <th className="px-6 py-4 cursor-pointer" onClick={() => handleSort('status')}>
+              <span className="flex items-center gap-2 text-[#47516B]">
+                Status
+                {renderSortIcon('status')}
+              </span>
+            </th>
+            <th className="px-6 py-4 text-[#47516B]">Action</th>
           </tr>
         </thead>
-        <tbody className="bg-white">
+        <tbody className="bg-white text-sm text-[#3B4152]">
           {jobs.map((job) => (
-            <tr key={job.jobId} className="border-b border-[#D6DBE7]">
-              <td className="px-4 py-6 text-[#3B4152]">
-                <span className="flex items-center gap-3">{job.jobId}</span>
+            <tr key={job.jobId} className="border-b border-[#EAECF5] last:border-0">
+              <td className="px-6 py-5">
+                <p className="font-semibold text-[#1E2538]">#{job.jobId}</p>
               </td>
-              <td className="px-4 py-2 text-[#3B4152]">
-                <div>
-                  <p>{job.serviceProvider?.name}</p>
-                  <p className="text-sm text-[#757C91]">{job.serviceProvider?.role}</p>
+              <td className="px-6 py-5">
+                <div className="space-y-0.5">
+                  <p className="font-medium text-[#1E2538]">{job.serviceProvider?.name ?? '—'}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-[#99A1B3]">
+                    {job.serviceProvider?.role ?? '—'}
+                  </p>
                 </div>
               </td>
-              <td className="px-4 py-2 text-[#3B4152]">{job.amount} NGN </td>
-              <td className="px-4 py-2 text-[#3B4152]">{job.timeline?.started?.date}</td>
-              <td className="px-4 py-2 text-[#3B4152]">{job.timeline?.ended?.date}</td>
+              <td className="px-6 py-5 font-semibold text-[#1E2538]">
+                {job.amount ? `₦${job.amount}` : '—'}
+              </td>
+              <td className="px-6 py-5 text-[#47516B]">
+                {job.timeline?.started?.date ?? '—'}
+              </td>
+              <td className="px-6 py-5 text-[#47516B]">
+                {job.timeline?.ended?.date ?? '—'}
+              </td>
 
-              <td className="px-4 py-2">
+              <td className="px-6 py-5">
                 <JobsStatusBadge status={job.status} />
               </td>
-              <td className="px-4 py-2">
-                <Button
+              <td className="px-6 py-5">
+                <button
                   type="button"
-                  variant="secondary"
                   onClick={() => onOpenJobDetails(job)}
-                  className="!bg-transparent !border-0 w-full text-sm text-[#017441] capitalize font-medium underline cursor-pointer"
+                  className="text-sm font-semibold text-[#017441] underline-offset-4 transition-colors hover:text-[#015c3a] hover:underline"
                 >
                   View more
-                </Button>
+                </button>
               </td>
             </tr>
           ))}

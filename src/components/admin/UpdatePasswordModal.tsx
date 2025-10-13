@@ -191,9 +191,9 @@ export default function UpdatePasswordModal({ onSuccess }: UpdatePasswordModalPr
                 )}
               >
                 {rule.valid ? (
-                  <CheckIcon className="h-4 w-4 text-[#017441]" />
+                  <CheckIcon className=" text-[#017441]" />
                 ) : (
-                  <InformationIcon className="h-4 w-4 text-[#B0B8C9]" />
+                  <InformationIcon className=" text-[#B0B8C9]" />
                 )}
                 {rule.label}
               </li>
@@ -219,7 +219,7 @@ export default function UpdatePasswordModal({ onSuccess }: UpdatePasswordModalPr
 
           {confirmPassword && !passwordsMatch && (
             <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#F0443A]">
-              <ErrorIcon className="h-4 w-4" />
+              <ErrorIcon className="" />
               Password mismatch
             </p>
           )}
@@ -228,7 +228,7 @@ export default function UpdatePasswordModal({ onSuccess }: UpdatePasswordModalPr
 
       {error && (
         <p className="mt-4 flex items-center gap-2 text-xs font-semibold text-[#F0443A]">
-          <ErrorIcon className="h-4 w-4" />
+          <ErrorIcon className="" />
           {error}
         </p>
       )}

@@ -38,7 +38,8 @@ export default function Overview({
   }, [provider.reviews, reviewsPage]);
 
   const reviewStartIndex = totalReviews === 0 ? 0 : (reviewsPage - 1) * REVIEWS_PER_PAGE;
-  const reviewEndIndex = totalReviews === 0 ? 0 : Math.min(reviewStartIndex + REVIEWS_PER_PAGE, totalReviews);
+  const reviewEndIndex =
+    totalReviews === 0 ? 0 : Math.min(reviewStartIndex + REVIEWS_PER_PAGE, totalReviews);
 
   const paginationItems = useMemo<(number | 'ellipsis')[]>(() => {
     if (totalReviewPages <= 3) {
@@ -202,7 +203,7 @@ export default function Overview({
                 disabled={reviewsPage === 1}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-[#D6DBE7] disabled:opacity-40"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="" />
               </button>
 
               {paginationItems.map((item, idx) =>
@@ -232,7 +233,7 @@ export default function Overview({
                 disabled={reviewsPage === totalReviewPages}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-[#D6DBE7] disabled:opacity-40"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="" />
               </button>
             </div>
 

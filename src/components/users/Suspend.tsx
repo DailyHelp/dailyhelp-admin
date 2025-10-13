@@ -1,9 +1,12 @@
 'use client';
+
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import Button from '@/components/ui/Button';
 import Textarea from '@/components/ui/Textarea';
-
+import { reactivateUser, suspendUser } from '@/features/users/api';
+import { useSelectedCustomerStore } from '@/features/users/store';
 import type { UserProfile } from '@/types/types';
 
 export interface SuspendProps {
@@ -12,72 +15,141 @@ export interface SuspendProps {
 }
 
 export default function Suspend({ usersData, onSuccess }: SuspendProps) {
-  const [status, setStatus] = useState<string>(usersData.status);
-  const [reason, setReason] = useState<string>('');
-  const isDisabled = reason.trim() === '' && status !== 'Suspended';
-  // ✅ Only require reason if suspending
+  const [reason, setReason] = useState('');
+  const [showErrors, setShowErrors] = useState(false);
+  const queryClient = useQueryClient();
+  const setSelectedCustomer = useSelectedCustomerStore((state) => state.setSelectedCustomer);
 
-  const handleCancel = () => {
+  const isCurrentlySuspended = usersData.status === 'Suspended';
+  const requiresReason = !isCurrentlySuspended;
+  const isSubmitDisabled = requiresReason && reason.trim().length === 0;
+
+  const closeModal = () => {
     setReason('');
-    onSuccess?.(); // close modal if parent passes onSuccess
+    setShowErrors(false);
+    onSuccess?.();
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    // toggle status
-    const newStatus = status === 'Suspended' ? 'Verified' : 'Suspended';
-    setStatus(newStatus);
-    usersData.status = newStatus;
-
-    toast.success(newStatus === 'Suspended' ? 'User suspended' : 'User reactivated', {
-      duration: 3000,
+  const handleOptimisticUpdate = (nextStatus: string) => {
+    setSelectedCustomer((prev) => {
+      if (!prev || prev.uuid !== usersData.id) {
+        return prev;
+      }
+      return {
+        ...prev,
+        status: nextStatus === 'Suspended' ? 'SUSPENDED' : 'VERIFIED',
+      };
     });
-
-    setReason('');
-    onSuccess?.(); // close modal
   };
 
-  const isSuspending = status !== 'Suspended'; // if active → suspend, else reactivate
+  const suspendMutation = useMutation({
+    mutationFn: async () => {
+      await suspendUser(usersData.id, reason.trim());
+      handleOptimisticUpdate('Suspended');
+    },
+    onSuccess: () => {
+      toast.success('User suspended successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-customer'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-customers'] });
+      closeModal();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Unable to suspend user');
+    },
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: async () => {
+      await reactivateUser(usersData.id);
+      handleOptimisticUpdate('Verified');
+    },
+    onSuccess: () => {
+      toast.success('User reactivated successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-customer'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-customers'] });
+      closeModal();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Unable to reactivate user');
+    },
+  });
+
+  const isLoading = suspendMutation.isPending || reactivateMutation.isPending;
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isCurrentlySuspended) {
+      reactivateMutation.mutate();
+      return;
+    }
+
+    if (reason.trim().length === 0) {
+      setShowErrors(true);
+      return;
+    }
+    setShowErrors(false);
+
+    suspendMutation.mutate();
+  };
 
   return (
     <div>
-      <p className="mb- px-5 py-4 text-[#3B4152]">
-        {isSuspending
-          ? 'You’re about to suspend this client, which will block their access to the platform and prevent them from requesting or booking any services.'
-          : 'This user was previously suspended and is about to be reactivated. Once reactivated, they will be able to log in, access their account, and use all features available to them.'}
+      <p className="px-5 py-4 text-[#3B4152]">
+        {isCurrentlySuspended
+          ? 'This user was previously suspended and is about to be reactivated. Once reactivated, they will regain access to their account and can continue using all features.'
+          : 'You’re about to suspend this client, which will block their access to the platform and prevent them from requesting or booking any services.'}
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col">
         <div className="px-5">
-          {isSuspending && (
+          {!isCurrentlySuspended && (
             <>
-              <label htmlFor="reason" className="mb-2 text-[#757C91] font-bold">
+              <label htmlFor="suspension-reason" className="mb-2 text-sm font-semibold text-[#757C91]">
                 Reason
               </label>
               <Textarea
-                id="reason"
+                id="suspension-reason"
                 value={reason}
                 placeholder="Enter reason for suspending user"
-                onChange={(e) => setReason(e.target.value)}
+                onChange={(event) => {
+                  setReason(event.target.value);
+                  if (showErrors && event.target.value.trim().length > 0) {
+                    setShowErrors(false);
+                  }
+                }}
                 rows={4}
-                cols={40}
-                className="p-2 bg-[#F9F9FB] text-[#3B4152] font-bold rounded-lg w-full mb-4 focus:outline-none focus:ring-none placeholder:text-[#A9AFC2] placeholder:font-bold"
+                className="mb-4 w-full rounded-lg border border-[#EAECF5] bg-[#F9F9FB] p-3 text-sm font-medium text-[#3B4152] focus:border-[#017441] focus:outline-none"
               />
+              {showErrors && reason.trim().length === 0 ? (
+                <p className="text-xs font-semibold text-[#EA3829]">Please provide a reason.</p>
+              ) : null}
             </>
           )}
         </div>
 
-        <div className="mt-auto bg-[#F9F9FB] flex border-t border-[#F1F2F4] py-4 px-6">
-          <div className="ml-auto space-x-4">
-            <Button type="button" onClick={handleCancel} variant="secondary">
-              Cancel
-            </Button>
+        <div className="mt-auto flex items-center justify-end gap-3 border-t border-[#EAECF5] bg-[#F9F9FB] px-6 py-4">
+          <Button type="button" onClick={closeModal} variant="secondary" disabled={isLoading}>
+            Cancel
+          </Button>
 
-            <Button type="submit" disabled={isDisabled}>
-              {isSuspending ? 'Suspend Client' : 'Reactivate Client'}
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            disabled={isLoading || isSubmitDisabled}
+            className={`${
+              isCurrentlySuspended
+                ? '!bg-[#0D8941] !text-white hover:!bg-[#0a6f34]'
+                : '!bg-[#F0443A] !text-white hover:!bg-[#d73b2f]'
+            }`}
+          >
+            {isCurrentlySuspended
+              ? reactivateMutation.isPending
+                ? 'Reactivating...'
+                : 'Reactivate Client'
+              : suspendMutation.isPending
+              ? 'Suspending...'
+              : 'Suspend Client'}
+          </Button>
         </div>
       </form>
     </div>

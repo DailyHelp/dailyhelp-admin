@@ -69,7 +69,7 @@ export default function AdminProfile() {
             className="flex items-center justify-center gap-2 rounded-full border border-[#017441] bg-transparent px-5 py-3 text-sm font-semibold text-[#017441] transition hover:bg-[#E5F4EE]"
             onClick={() => setOpen(true)}
           >
-            <LockIcon className="h-4 w-4" />
+            <LockIcon className="" />
             Update password
           </Button>
         </div>

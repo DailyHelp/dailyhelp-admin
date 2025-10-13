@@ -21,6 +21,7 @@ export interface PersonRef {
   role?: string;
   icon?: IconRef;
   badgeIcon?: IconRef;
+  uuid?: string;
 }
 
 export interface JobDisputeDetails {
@@ -69,6 +70,9 @@ export interface WalletRecord {
 
 export interface JobItem {
   jobId: string;
+  jobUuid?: string;
+  requestId?: string;
+  jobCode?: string;
   client?: PersonRef;
   serviceProvider?: PersonRef;
   amount?: string;

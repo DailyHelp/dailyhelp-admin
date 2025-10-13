@@ -18,7 +18,7 @@ export default function JobsFiltersBar({
   setSearch,
 }: JobsFiltersBarProps) {
   return (
-    <div className="flex gap-4 ">
+    <div className="flex items-center gap-3">
       <JobStatusDropdown value={status} onChange={setStatus} className="w-fit" />
       <SearchInput
         value={search}

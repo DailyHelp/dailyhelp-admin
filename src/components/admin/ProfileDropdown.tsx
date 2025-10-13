@@ -63,7 +63,7 @@ export default function ProfileDropdown() {
               router.push('/adminprofile');
             }}
           >
-            <User className="h-4 w-4" />
+            <User className="" />
             Admin profile
           </Button>
           <Button
@@ -71,7 +71,7 @@ export default function ProfileDropdown() {
             className="!border-0 !bg-transparent flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-[#F0443A] hover:bg-[#FEF6F6]"
             onClick={handleLogout}
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="" />
             Logout
           </Button>
         </div>

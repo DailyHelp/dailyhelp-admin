@@ -30,6 +30,7 @@ export default function VerifyCodePage() {
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
   const [timer, setTimer] = useState(60);
   const [hasError, setHasError] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const { pendingLogin, completeLogin, updatePendingPin, clearPendingLogin } = useAuthStore(
     (state) => ({
       pendingLogin: state.pendingLogin,
@@ -100,13 +101,14 @@ export default function VerifyCodePage() {
       }
 
       clearPendingLogin();
-      toast.success('Login successful.');
       completeLogin({
         accessToken: response.data.accessToken,
         user: response.data.user,
         roles: response.data.roles,
         permissions: response.data.permissions,
       });
+      toast.success('Login successful.');
+      setIsRedirecting(true);
       router.push('/dashboard');
     },
     onError: (error: ApiError | Error) => {
@@ -202,6 +204,18 @@ export default function VerifyCodePage() {
 
   if (!storeHydrated || !pendingLogin) {
     return null;
+  }
+
+  if (isRedirecting) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#F9F9FB] px-4">
+        <DailyHelpLogo className="h-12 w-auto" />
+        <div className="mt-8 flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#017441] border-t-transparent" />
+          <p className="text-sm font-medium text-[#47516B]">Preparing your dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

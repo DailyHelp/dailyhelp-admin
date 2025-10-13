@@ -1,10 +1,77 @@
 'use client';
-import AcceptIcon from '@/assets/accept-icon.svg';
-import CheckedIcon from '@/assets/checked-icon.svg';
-import DividerIcon from '@/assets/divider-icon.svg';
+
+import { useMemo } from 'react';
+import Image from 'next/image';
+import { Calendar, MessageCircle } from 'lucide-react';
 import JobsStatusBadge from './JobsStatusBadge';
-import type { UserProfile, JobItem, ChatThread } from '@/types/types';
+import type { UserProfile, JobItem } from '@/types/types';
 import Button from '@/components/ui/Button';
+import { useAdminJobDispute, useAdminJobTimeline } from '@/features/users/hooks';
+
+interface TimelineEntry {
+  label: string;
+  timestamp: string;
+}
+
+function formatDateTime(value?: string | null): string {
+  if (!value) {
+    return '—';
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function toTitle(value?: string | null): string {
+  if (!value) {
+    return '';
+  }
+  return value
+    .toString()
+    .toLowerCase()
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function normalisePictures(pictures?: string | string[] | null): string[] {
+  if (!pictures) {
+    return [];
+  }
+  if (Array.isArray(pictures)) {
+    return pictures.filter(Boolean);
+  }
+
+  const trimmed = pictures.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string' && Boolean(item));
+      }
+    } catch (error) {
+      // fall back to comma-separated approach below
+    }
+  }
+
+  return trimmed
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 export default function JobDetails({
   usersData,
@@ -13,202 +80,216 @@ export default function JobDetails({
 }: {
   usersData: UserProfile;
   jobs: JobItem;
-  onOpenChat: (chat: ChatThread[] | undefined) => void;
+  onOpenChat: (context: { providerUuid?: string; customerUuid: string; job: JobItem }) => void;
 }) {
+  const jobUuid = jobs.jobUuid;
+  const { data: timelineResponse } = useAdminJobTimeline(jobUuid, { enabled: Boolean(jobUuid) });
+  const { data: disputeResponse } = useAdminJobDispute(jobUuid, { enabled: Boolean(jobUuid) });
+
+  const timelineItems = useMemo<TimelineEntry[]>(() => {
+    const events = timelineResponse?.data ?? [];
+    if (events.length > 0) {
+      return events
+        .filter((event) => event.createdAt)
+        .map((event) => ({
+          label: toTitle(event.event) || 'Update',
+          timestamp: event.createdAt ?? '',
+        }))
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    }
+
+    const manual: TimelineEntry[] = [];
+    if (jobs.timeline?.accepted?.date) {
+      manual.push({
+        label: 'Offer Accepted',
+        timestamp: `${jobs.timeline.accepted.date} ${jobs.timeline.accepted.time ?? ''}`.trim(),
+      });
+    }
+    if (jobs.timeline?.started?.date) {
+      manual.push({
+        label: 'Job Start',
+        timestamp: `${jobs.timeline.started.date} ${jobs.timeline.started.time ?? ''}`.trim(),
+      });
+    }
+    if (jobs.timeline?.ended?.date) {
+      manual.push({
+        label: 'Job End',
+        timestamp: `${jobs.timeline.ended.date} ${jobs.timeline.ended.time ?? ''}`.trim(),
+      });
+    }
+    if (jobs.timeline?.resolution?.date) {
+      manual.push({
+        label: 'Resolution',
+        timestamp: `${jobs.timeline.resolution.date} ${jobs.timeline.resolution.time ?? ''}`.trim(),
+      });
+    }
+    return manual;
+  }, [jobs.timeline, timelineResponse]);
+
+  const dispute = disputeResponse?.data ?? null;
+
+  const amountDisplay = jobs.amount ? `₦${jobs.amount}` : '₦0';
+  const acceptedDisplay = jobs.timeline?.accepted
+    ? `${jobs.timeline.accepted.date} ${jobs.timeline.accepted.time ?? ''}`.trim()
+    : undefined;
+
+  const providerAvatar = jobs.serviceProvider?.icon as string | undefined;
+  const providerInitial = jobs.serviceProvider?.name?.[0]?.toUpperCase() ?? 'P';
+  const disputePictures = normalisePictures(dispute?.pictures);
+
   return (
-    <section className="px-6 py-4">
-      {/* Header */}
-      <div className="space-y-6 border-b border-[#D6DBE7] pb-4">
-        <h2 className="text-[#3B4152] text-sm font-bold">{jobs.jobId}</h2>
-        <div className="relative flex items-center justify-between">
-          <div className="flex gap-3 items-center">
-            {(() => {
-              const Icon = jobs.serviceProvider?.icon as unknown as React.ComponentType<
-                React.SVGProps<SVGSVGElement>
-              >;
-              return Icon ? <Icon className="rounded-full w-14 h-14" /> : null;
-            })()}
-            {(() => {
-              const Badge = jobs.serviceProvider?.badgeIcon as unknown as React.ComponentType<
-                React.SVGProps<SVGSVGElement>
-              >;
-              return Badge ? <Badge className="absolute top-8 left-9" /> : null;
-            })()}
-            <div className="space-y-1">
-              <p className="text-[#121921] font-bold">{jobs.serviceProvider?.name}</p>
-              <p className="text-[#757C91] text-sm">{jobs.serviceProvider?.role}</p>
-            </div>
+    <section className="space-y-6 px-6 py-6">
+      <header className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#99A1B3]">
+              Request ID
+            </p>
+            <p className="text-lg font-semibold text-[#0E171A]">
+              #{jobs.requestId ?? jobs.jobId}
+            </p>
           </div>
 
           <Button
             variant="secondary"
-            onClick={() => {
-              onOpenChat(usersData.chat); // 👈 pass chat from props
-            }}
-            className="rounded-2xl text-[#017441]"
+            onClick={() =>
+              onOpenChat({
+                providerUuid: jobs.serviceProvider?.uuid,
+                customerUuid: usersData.id,
+                job: jobs,
+              })
+            }
+            className="inline-flex items-center gap-2 rounded-full border border-[#D6DBE7] bg-white px-4 py-2 text-sm font-semibold text-[#017441] hover:border-[#017441] hover:bg-[#F3FCF4]"
           >
-            View Chat
+            <MessageCircle className="h-4 w-4" /> View chat
           </Button>
         </div>
-      </div>
 
-      {/* Amount + Status */}
-      <div className="space-y-3 border-b border-[#D6DBE7] py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold">₦{jobs.amount}</h2>
-            {jobs.timeline?.accepted && (
-              <p className="flex text-xs gap-2 text-[#757C91]">
-                <AcceptIcon /> Accepted on {jobs.timeline.accepted.date}{' '}
-                {jobs.timeline.accepted.time}
-              </p>
+        <div className="rounded-3xl border border-[#EAECF5] bg-[#F8FAFC] px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-2xl font-semibold text-[#0E171A]">{amountDisplay}</p>
+              {acceptedDisplay ? (
+                <p className="flex items-center gap-2 text-xs font-medium text-[#99A1B3]">
+                  <Calendar className="h-4 w-4" /> Accepted on {acceptedDisplay}
+                </p>
+              ) : null}
+            </div>
+            <JobsStatusBadge status={jobs.status} />
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-[#EAECF5] bg-white px-5 py-4">
+          <div className="flex items-center gap-3">
+            {providerAvatar ? (
+              <Image
+                src={providerAvatar}
+                alt={jobs.serviceProvider?.name ?? ''}
+                width={56}
+                height={56}
+                className="h-14 w-14 rounded-full object-cover"
+              />
+            ) : (
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F0F4FF] text-sm font-semibold text-[#47516B]">
+                {providerInitial}
+              </span>
             )}
+
+            <div>
+              <p className="text-base font-semibold text-[#0E171A]">{jobs.serviceProvider?.name ?? '—'}</p>
+              <p className="text-sm font-medium uppercase tracking-wide text-[#99A1B3]">
+                {jobs.serviceProvider?.role ?? '—'}
+              </p>
+            </div>
           </div>
-          <JobsStatusBadge status={jobs.status} />
+
+          <div className="mt-4 space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#99A1B3]">Payment</p>
+            <p className="text-sm text-[#47516B]">
+              {jobs.jobDesc && jobs.jobDesc.trim().length > 0
+                ? jobs.jobDesc
+                : 'No additional payment details provided.'}
+            </p>
+          </div>
         </div>
+      </header>
 
-        {/* Status reason */}
-        {jobs.statusReason && (
-          <p className="bg-[#FEF6F6] text-[#F0443A] text-sm rounded-xl flex px-2 py-1 w-fit items-center">
-            {jobs.statusReason}
-          </p>
-        )}
-
-        {/* Description */}
-        <p className="text-[#3B4152] text-sm">{jobs.jobDesc}</p>
-
-        {/* Inspo Images */}
-        {jobs.jobInspo && (
-          <div className="flex gap-[2px]">
-            {(() => {
-              const Inspo = jobs.jobInspo as unknown as React.ComponentType<
-                React.SVGProps<SVGSVGElement>
-              >;
-              return (
-                <>
-                  <Inspo />
-                  <Inspo />
-                  <Inspo />
-                </>
-              );
-            })()}
+      {dispute ? (
+        <section className="space-y-4 rounded-3xl border border-[#FFE1D6] bg-[#FFFAFA] px-5 py-4">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#EA3829]">
+              Dispute details
+            </p>
+            <p className="text-sm font-semibold text-[#0E171A]">{dispute.category ?? 'Dispute reported'}</p>
+            {dispute.description ? (
+              <p className="text-sm text-[#47516B]">{dispute.description}</p>
+            ) : null}
+            {dispute.status ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-[#FFF3EB] px-3 py-1 text-xs font-semibold text-[#FF8A32]">
+                {toTitle(dispute.status)}
+              </span>
+            ) : null}
           </div>
-        )}
-      </div>
-      {/* ✅ Dispute Section */}
-      {jobs.status === 'Disputed' && (
-        <div className="space-y-1 border-b border-[#D6DBE7] py-4">
-          <h3 className="text-[#757C91] font-bold text-sm">DISPUTE DETAILS</h3>
-          <p className="text-sm font-bold text-[#3B4152] pt-2">{jobs.disputeDetails?.issue}</p>
-          <p className="text-[#3B4152] text-sm">{jobs.disputeDetails?.description}</p>
-          {jobs.disputeDetails?.images && (
-            <div className="flex gap-[2px] mt-2">
-              {(() => {
-                const Img = jobs.disputeDetails?.images as unknown as React.ComponentType<
-                  React.SVGProps<SVGSVGElement>
-                >;
-                return Img ? (
-                  <>
-                    <Img className="w-12 h-12" />
-                    <Img className="w-12 h-12" />
-                    <Img className="w-12 h-12" />
-                    <Img className="w-12 h-12" />
-                  </>
-                ) : null;
-              })()}
+
+          {disputePictures.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {disputePictures.map((picture) => (
+                <Image
+                  key={picture}
+                  src={picture}
+                  alt="Dispute evidence"
+                  width={56}
+                  height={56}
+                  className="h-14 w-14 rounded-lg object-cover"
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {(dispute.resolutionAction || dispute.resolutionNote) && (
+            <div className="rounded-2xl border border-[#FFE1D6] bg-white px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#FF8A32]">
+                Dispute resolution
+              </p>
+              {dispute.resolutionAction ? (
+                <p className="mt-1 text-sm font-semibold text-[#FF6B01]">
+                  {toTitle(dispute.resolutionAction)}
+                </p>
+              ) : null}
+              {dispute.resolutionRefundAmount ? (
+                <p className="text-lg font-semibold text-[#0E171A]">
+                  ₦{dispute.resolutionRefundAmount.toLocaleString('en-NG')}
+                </p>
+              ) : null}
+              {dispute.resolutionNote ? (
+                <p className="text-sm text-[#47516B]">{dispute.resolutionNote}</p>
+              ) : null}
             </div>
           )}
+        </section>
+      ) : null}
 
-          {/* Resolution */}
-          {jobs.resolutionDetails && (
-            <div className="space-y- border-t border-[#D6DBE7] mt-4 pt-4">
-              <h4 className="text-[#757C91] font-bold text-sm ">DISPUTE RESOLUTION</h4>
-              {(() => {
-                const res =
-                  typeof jobs.resolutionDetails === 'object'
-                    ? (jobs.resolutionDetails as any)
-                    : undefined;
-                return (
-                  <>
-                    <p className="text-sm font-bold text-[#FF6B01] pt-3">{res?.issue}</p>
-                    <p className="text-xl font-bold pb-1">₦{res?.refundAmount}</p>
-                    <p className="text-[#3B4152] text-sm">{res?.description}</p>
-                  </>
-                );
-              })()}
-            </div>
-          )}
-        </div>
-      )}
-      {/* Timeline */}
-      <div className="py-4">
-        <h2 className="text-[#3B4152] text-sm font-bold">JOB TIMELINE</h2>
-      </div>
-
-      <div className="">
-        {/* Offer Accepted */}
-        {jobs.timeline?.accepted && (
-          <div className="relative flex items-start">
-            <div className="flex flex-col items-center">
-              <CheckedIcon />
-              <DividerIcon />
-            </div>
-            <div className="ml-4 text-sm flex justify-between grow">
-              <p className="text-[#757C91]">Offer Accepted</p>
-              <p className="text-[#121921]">
-                {jobs.timeline.accepted.date} {jobs.timeline.accepted.time}
-              </p>
-            </div>
-          </div>
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-[#99A1B3]">Job timeline</h3>
+        {timelineItems.length === 0 ? (
+          <p className="text-sm text-[#757C91]">No timeline events available.</p>
+        ) : (
+          <ul className="relative space-y-4">
+            {timelineItems.map((item, index) => (
+              <li key={`${item.label}-${index}`} className="relative flex items-center justify-between gap-4 pl-8">
+                <span className="absolute left-1 top-1.5 flex flex-col items-center">
+                  <span className="h-3 w-3 rounded-full bg-[#0D8941]" />
+                  {index !== timelineItems.length - 1 ? (
+                    <span className="mt-1 block h-8 w-px bg-[#EAECF5]" />
+                  ) : null}
+                </span>
+                <span className="text-sm font-semibold text-[#0E171A]">{item.label}</span>
+                <span className="text-xs font-medium text-[#99A1B3]">{formatDateTime(item.timestamp)}</span>
+              </li>
+            ))}
+          </ul>
         )}
-
-        {/* Job Start */}
-        {jobs.timeline?.started && (
-          <div className="relative flex items-start">
-            <div className="flex flex-col items-center">
-              <CheckedIcon />
-              <DividerIcon />
-            </div>
-            <div className="ml-4 text-sm flex justify-between grow">
-              <p className="text-[#757C91]">Job Start</p>
-              <p className="text-[#121921]">
-                {jobs.timeline.started.date} {jobs.timeline.started.time}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Job End */}
-        {jobs.timeline?.ended && (
-          <div className="relative flex items-start">
-            <div className="flex flex-col items-center">
-              <CheckedIcon />
-              <DividerIcon />
-            </div>
-            <div className="ml-4 text-sm flex justify-between grow">
-              <p className="text-[#757C91]">Job End</p>
-              <p className="text-[#121921]">
-                {jobs.timeline.ended.date} {jobs.timeline.ended.time}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Job End */}
-        {jobs.timeline?.resolution && (
-          <div className="relative flex items-start">
-            <div className="flex flex-col items-center">
-              <CheckedIcon />
-            </div>
-            <div className="ml-4 text-sm flex justify-between grow">
-              <p className="text-[#757C91]">Resolution</p>
-              <p className="text-[#121921]">
-                {jobs.timeline.resolution.date} {jobs.timeline.resolution.time}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+      </section>
     </section>
   );
 }

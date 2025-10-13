@@ -3,13 +3,34 @@ import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import StatusIcon from '@/assets/status-icon.svg';
 
+export interface StatusDropdownOption {
+  label: string;
+  value: string;
+}
+
 export interface StatusDropdownProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  options?: StatusDropdownOption[];
+  placeholder?: string;
 }
 
-export default function StatusDropdown({ value, onChange, className }: StatusDropdownProps) {
+const defaultOptions: StatusDropdownOption[] = [
+  { value: '', label: 'All status' },
+  { value: 'Pending', label: 'Pending' },
+  { value: 'Suspended', label: 'Suspended' },
+  { value: 'Failed', label: 'Failed' },
+  { value: 'Verified', label: 'Verified' },
+];
+
+export default function StatusDropdown({
+  value,
+  onChange,
+  className,
+  options = defaultOptions,
+  placeholder,
+}: StatusDropdownProps) {
   return (
     <div
       className={`relative inline-block border border-[#D6DBE7] rounded-xl px-3 bg-[#F9F9FB] ${className ?? ''}`}
@@ -20,15 +41,16 @@ export default function StatusDropdown({ value, onChange, className }: StatusDro
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="" className="bg-white">
-          Status
-        </option>
-        <option value="Pending" className="bg-white">
-          Pending
-        </option>
-        <option value="Suspended">Suspended</option>
-        <option value="Failed">Failed</option>
-        <option value="Verified">Verified</option>
+        {placeholder ? (
+          <option value="" className="bg-white">
+            {placeholder}
+          </option>
+        ) : null}
+        {options.map((option) => (
+          <option key={option.value} value={option.value} className="bg-white">
+            {option.label}
+          </option>
+        ))}
       </select>
 
       {/* Custom icon */}

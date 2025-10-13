@@ -14,6 +14,7 @@ export interface BadgeRatingsProps {
   title?: string;
   suffix?: string;
   Icon?: IconType | null;
+  valueSuffix?: string;
 }
 
 export default function BadgeRatings({
@@ -21,7 +22,10 @@ export default function BadgeRatings({
   title = '',
   suffix = '',
   Icon: SharedIcon = null,
+  valueSuffix = 'providers',
 }: BadgeRatingsProps) {
+  const suffixLabel = valueSuffix.trim();
+
   return (
     <div className="bg-white rounded-xl border border-[#F1F2F4]">
       <h2 className="bg-[#F9F9FB] text-[14px] text-[#757C91] font-semibold border-b border-[#F1F2F4] px-4 py-2">
@@ -42,7 +46,16 @@ export default function BadgeRatings({
                     {name} {suffix}
                   </p>
                 </div>
-                <p>{Number(amount).toLocaleString()} providers</p>
+                <p>
+                  {(() => {
+                    const raw =
+                      typeof amount === 'number'
+                        ? amount
+                        : Number(String(amount ?? '0').replace(/,/g, ''));
+                    return raw.toLocaleString(undefined, { maximumFractionDigits: 0 });
+                  })()}
+                  {suffixLabel ? ` ${suffixLabel}` : ''}
+                </p>
               </li>
             );
           })}
