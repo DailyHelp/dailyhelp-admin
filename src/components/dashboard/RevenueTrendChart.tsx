@@ -28,6 +28,16 @@ export interface RevenueTrendChartProps {
   tooltipValueFormatter?: (value: number) => string;
 }
 
+type RevenueTooltipPayload = {
+  dataKey?: string;
+  value?: number | string;
+  payload?: RevenueTrendChartPoint;
+};
+
+type RevenueTooltipProps = TooltipProps<number, string> & {
+  payload?: RevenueTooltipPayload[];
+};
+
 const defaultFormatter = (value: number): string => value.toLocaleString();
 
 const dotStyle = { r: 5, strokeWidth: 2, fill: '#FFFFFF' } as const;
@@ -54,7 +64,8 @@ export default function RevenueTrendChart({
   const chartData = data;
   const tooltipFormatter = tooltipValueFormatter ?? valueFormatter;
 
-  const renderTooltip = ({ active, payload }: TooltipProps<number, string>) => {
+  const renderTooltip = (tooltipProps: RevenueTooltipProps) => {
+    const { active, payload } = tooltipProps;
     if (!active || !payload || payload.length === 0) {
       return null;
     }

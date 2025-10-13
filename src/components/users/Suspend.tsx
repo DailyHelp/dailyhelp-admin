@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Textarea from '@/components/ui/Textarea';
 import { reactivateUser, suspendUser } from '@/features/users/api';
 import { useSelectedCustomerStore } from '@/features/users/store';
+import { AdminCustomerStatus } from '@/features/users/types';
 import type { UserProfile } from '@/types/types';
 
 export interface SuspendProps {
@@ -30,14 +31,14 @@ export default function Suspend({ usersData, onSuccess }: SuspendProps) {
     onSuccess?.();
   };
 
-  const handleOptimisticUpdate = (nextStatus: string) => {
+  const handleOptimisticUpdate = (nextStatus: AdminCustomerStatus) => {
     setSelectedCustomer((prev) => {
       if (!prev || prev.uuid !== usersData.id) {
         return prev;
       }
       return {
         ...prev,
-        status: nextStatus === 'Suspended' ? 'SUSPENDED' : 'VERIFIED',
+        status: nextStatus,
       };
     });
   };
@@ -45,7 +46,7 @@ export default function Suspend({ usersData, onSuccess }: SuspendProps) {
   const suspendMutation = useMutation({
     mutationFn: async () => {
       await suspendUser(usersData.id, reason.trim());
-      handleOptimisticUpdate('Suspended');
+      handleOptimisticUpdate(AdminCustomerStatus.SUSPENDED);
     },
     onSuccess: () => {
       toast.success('User suspended successfully');
@@ -61,7 +62,7 @@ export default function Suspend({ usersData, onSuccess }: SuspendProps) {
   const reactivateMutation = useMutation({
     mutationFn: async () => {
       await reactivateUser(usersData.id);
-      handleOptimisticUpdate('Verified');
+      handleOptimisticUpdate(AdminCustomerStatus.VERIFIED);
     },
     onSuccess: () => {
       toast.success('User reactivated successfully');

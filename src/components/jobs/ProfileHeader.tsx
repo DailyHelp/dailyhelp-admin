@@ -1,5 +1,5 @@
 'use client';
-import { statusStyles, statusIcons } from '@/components/users/StatusBadge';
+import StatusBadge from '@/components/users/StatusBadge';
 import DateIcon from '@/assets/dob-icon.svg';
 import EmailIcon from '@/assets/email2-icon.svg';
 import PhoneIcon from '@/assets/phone-icon.svg';
@@ -41,14 +41,7 @@ export default function ProfileHeader({
               {usersData.name}
             </h2>
             <h2 className="text-[#7C8397]">{getInitial(userGender)}</h2>
-            <span
-              className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                statusStyles[status] || 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {statusIcons[status]}
-              {status}
-            </span>
+            <StatusBadge status={status} />
           </div>
 
           <div className="flex px-2 space-x-6  items-center">

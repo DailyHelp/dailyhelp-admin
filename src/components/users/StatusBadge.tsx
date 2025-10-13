@@ -66,7 +66,7 @@ const STATUS_META: Record<string, StatusMeta> = {
   },
 };
 
-function normalizeStatus(status: SupportedStatus): StatusMeta {
+function normalizeStatus(status: SupportedStatus | string): StatusMeta {
   const base = String(status).toUpperCase();
   if (STATUS_META[base]) {
     return STATUS_META[base];
@@ -84,7 +84,7 @@ function normalizeStatus(status: SupportedStatus): StatusMeta {
 }
 
 export interface StatusBadgeProps {
-  status: SupportedStatus;
+  status: SupportedStatus | string;
   className?: string;
 }
 
