@@ -202,7 +202,7 @@ export function mapAdminReportToReportEntry(report: AdminReportListItem): Report
 
   const clientPerson = requestor
     ? {
-        name: buildName(requestor),
+        name: buildName(requestor) ?? '',
         role: buildRole(requestor, 'client'),
         icon: requestor.picture ?? undefined,
         uuid: requestor.uuid,
@@ -211,7 +211,7 @@ export function mapAdminReportToReportEntry(report: AdminReportListItem): Report
 
   const providerPerson = provider
     ? {
-        name: buildName(provider),
+        name: buildName(provider) ?? '',
         role: buildRole(provider, 'serviceProvider'),
         icon: provider.picture ?? undefined,
         uuid: provider.uuid,
@@ -222,7 +222,7 @@ export function mapAdminReportToReportEntry(report: AdminReportListItem): Report
     jobId,
     uuid: report.uuid,
     reporter: {
-      name: buildName(reporterSource),
+      name: buildName(reporterSource) ?? '',
       role: buildRole(
         reporterSource,
         reporterSource?.uuid && reporterSource.uuid === requestor?.uuid
@@ -236,7 +236,7 @@ export function mapAdminReportToReportEntry(report: AdminReportListItem): Report
       uuid: reporterSource?.uuid,
     },
     reportedParty: {
-      name: buildName(reportedSource),
+      name: buildName(reportedSource) ?? '',
       role: buildRole(
         reportedSource,
         reportedSource?.uuid && reportedSource.uuid === requestor?.uuid

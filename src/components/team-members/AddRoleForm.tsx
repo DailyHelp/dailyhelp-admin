@@ -85,7 +85,7 @@ export default function AddRoleForm({
     return lookup;
   }, [permissionGroups]);
 
-  const initKeys = useMemo(() => initialSelectedKeys ?? [], [roleUuid, initialSelectedKeys]);
+  const initKeys = useMemo(() => initialSelectedKeys ?? [], [initialSelectedKeys]);
 
   const [roleTitle, setRoleTitle] = useState(initialTitle);
   const [selected, setSelected] = useState<Set<string>>(() => new Set<string>(initKeys));
@@ -225,9 +225,12 @@ export default function AddRoleForm({
     const ref = useRef<HTMLInputElement | null>(null);
     const { checked, indeterminate } = groupState(group);
     const hasChildren = group.children && group.children.length > 0;
-    const hasSelectableChildren = hasChildren
-      ? group.children.some((child) => !hasApiPermissionData || Boolean(permissionLookup[child.key]?.uuid))
-      : false;
+    const hasSelectableChildren =
+      hasChildren && group.children
+        ? group.children.some(
+            (child) => !hasApiPermissionData || Boolean(permissionLookup[child.key]?.uuid),
+          )
+        : false;
     const canSelectGroup = hasChildren
       ? hasSelectableChildren
       : !hasApiPermissionData || Boolean(group.uuid);

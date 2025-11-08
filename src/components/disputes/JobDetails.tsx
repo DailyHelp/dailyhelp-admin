@@ -245,13 +245,11 @@ export default function JobDetails({
             <div className="mt-4 space-y- border-t border-[#D6DBE7] pt-4">
               <h4 className="text-sm font-bold text-[#757C91]">DISPUTE RESOLUTION</h4>
               {(() => {
-                const res =
-                  typeof jobs.resolutionDetails === 'object'
-                    ? (jobs.resolutionDetails as Record<string, unknown>)
-                    : undefined;
-                if (!res) {
+                if (typeof jobs.resolutionDetails === 'string') {
                   return null;
                 }
+                const res = jobs.resolutionDetails;
+                if (!res) return null;
                 const refundAmount =
                   typeof res.refundAmount === 'string' && res.refundAmount.trim().length > 0
                     ? res.refundAmount
@@ -259,14 +257,12 @@ export default function JobDetails({
                 return (
                   <>
                     <p className="pt-3 text-sm font-bold text-[#FF6B01]">
-                      {(res.issue as string) ?? 'Resolution'}
+                      {res.issue ?? 'Resolution'}
                     </p>
                     {refundAmount ? (
                       <p className="text-xl font-bold pb-1">₦{refundAmount}</p>
                     ) : null}
-                    <p className="text-sm text-[#3B4152]">
-                      {(res.description as string) ?? '—'}
-                    </p>
+                    <p className="text-sm text-[#3B4152]">{res.description ?? '—'}</p>
                   </>
                 );
               })()}

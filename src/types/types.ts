@@ -22,6 +22,8 @@ export interface PersonRef {
   icon?: IconRef;
   badgeIcon?: IconRef;
   uuid?: string;
+  email?: string;
+  avatar?: IconRef;
 }
 
 export interface JobDisputeDetails {

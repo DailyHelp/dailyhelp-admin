@@ -87,10 +87,10 @@ export default function JobDetails({
 
   const inspoItems = (() => {
     if (!jobs.jobInspo) return [];
-    const baseIcons = Array.isArray(jobs.jobInspo)
-      ? jobs.jobInspo
-      : Array.from({ length: 4 }, () => jobs.jobInspo);
-    const icons = baseIcons.slice(0, 5);
+    const rawIcons = Array.isArray(jobs.jobInspo) ? jobs.jobInspo : [jobs.jobInspo];
+    const icons = rawIcons.filter(Boolean).slice(0, 5) as Array<
+      string | ComponentType<SVGProps<SVGSVGElement>>
+    >;
     return icons
       .map((icon, index) => {
         if (!icon) return null;
