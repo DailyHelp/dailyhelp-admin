@@ -8,31 +8,64 @@ import DisputedIcon from '@/assets/disputed-icon.svg';
 import VerifiedIcon from '@/assets/verified-icon.svg';
 import PendingIcon from '@/assets/pending-gray-icon.svg';
 
-export const statusStyles: Record<string, string> = {
-  Pending: 'bg-[#F9F9FB] text-[#757C91] font-medium',
-  InProgress: 'bg-[#FFF3EB] text-[#FF6B01] font-medium',
-  Canceled: 'bg-[#FEF6F6] text-[#F0443A]  font-medium',
-  Disputed: 'bg-[#FEF6F6] text-[#F0443A]  font-medium',
-  Completed: 'bg-[#E6FFF4] text-[#27A535]  font-medium',
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; className: string; icon: React.ReactNode | null }
+> = {
+  pending: {
+    label: 'Pending',
+    className: 'bg-[#F2F3F5] text-[#757C91]',
+    icon: <PendingIcon className="mr-1" />,
+  },
+  in_progress: {
+    label: 'In-progress',
+    className: 'bg-[#FFF3EB] text-[#FF6B01]',
+    icon: <ProgressIcon className="mr-1" />,
+  },
+  ongoing: {
+    label: 'Ongoing',
+    className: 'bg-[#FFF3EB] text-[#FF6B01]',
+    icon: <ProgressIcon className="mr-1" />,
+  },
+  canceled: {
+    label: 'Canceled',
+    className: 'bg-[#FEF6F6] text-[#F0443A]',
+    icon: <CanceledIcon className="mr-1" />,
+  },
+  cancelled: {
+    label: 'Canceled',
+    className: 'bg-[#FEF6F6] text-[#F0443A]',
+    icon: <CanceledIcon className="mr-1" />,
+  },
+  disputed: {
+    label: 'Disputed',
+    className: 'bg-[#FEF6F6] text-[#F0443A]',
+    icon: <DisputedIcon className="mr-1" />,
+  },
+  completed: {
+    label: 'Completed',
+    className: 'bg-[#E6FFF4] text-[#27A535]',
+    icon: <VerifiedIcon className="mr-1" />,
+  },
 };
 
-export const statusIcons: Record<string, React.ReactNode> = {
-  Pending: <PendingIcon className="mr-1 " />,
-  InProgress: <ProgressIcon className="mr-1 " />,
-  Canceled: <CanceledIcon className="mr-1" />,
-  Disputed: <DisputedIcon className="mr-1" />,
-  Completed: <VerifiedIcon className="mr-1" />,
-};
+function normalizeStatus(value: string | undefined): string {
+  if (!value) {
+    return 'pending';
+  }
+  return value.toString().trim().toLowerCase().replace(/\s+/g, '_');
+}
 
 export default function JobsStatusBadge({ status = 'Pending' }: { status?: string }) {
+  const normalized = normalizeStatus(status);
+  const config = STATUS_CONFIG[normalized] ?? STATUS_CONFIG.pending;
+
   return (
     <span
-      className={`w-fit relative text-xs rounded-sm font-bold flex px-2 py-1 pl-6 items-center ${
-        statusStyles[status] || 'bg-gray-100'
-      }`}
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${config.className}`}
     >
-      <span className="absolute left-2 top-1/4">{statusIcons[status]}</span>
-      {status}
+      {config.icon}
+      {config.label}
     </span>
   );
 }

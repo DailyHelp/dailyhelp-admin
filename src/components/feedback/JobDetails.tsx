@@ -1,43 +1,72 @@
 'use client';
-import Image from 'next/image';
 
-import JobsStatusBadge from './JobsStatusBadge';
-import { ChevronDown } from 'lucide-react';
+import type { ComponentType, SVGProps } from 'react';
+import type { FeedbackListItem } from '@/types/types';
 
-export default function JobDetails({
-  usersData,
-  jobs,
-  onOpenModal,
-}: {
-  usersData: any;
-  jobs: any;
-  onOpenModal?: (type: string) => void;
-}) {
+function getInitials(name?: string) {
+  if (!name) return 'FB';
+  const parts = name.split(' ').filter(Boolean);
+  if (parts.length === 0) return 'FB';
+  if (parts.length === 1) return parts[0]![0]!.toUpperCase();
+  return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase();
+}
+
+function renderAvatar(source: unknown, name?: string) {
+  const initials = getInitials(name);
+
+  if (typeof source === 'string' && source.trim().length > 0) {
+    return (
+      <img
+        src={source}
+        alt={name ?? 'User avatar'}
+        className="h-16 w-16 rounded-full object-cover"
+      />
+    );
+  }
+
+  if (typeof source === 'function') {
+    const Icon = source as ComponentType<SVGProps<SVGSVGElement>>;
+    return <Icon className="h-16 w-16 rounded-full" />;
+  }
+
   return (
-    <section className="px-6 py-4">
-      {/* Header */}
-      <div className="space-y-6  pb-4">
-        <div className=" flex items-center gap-20">
-          <div className="space-y-2">
-            <div className="flex gap-2 items-center">
-              {(() => {
-                const Icon = jobs.icon as unknown as React.ComponentType<
-                  React.SVGProps<SVGSVGElement>
-                >;
-                return Icon ? <Icon className="rounded-full w-14 h-14" /> : null;
-              })()}
-              <div>
-                <p className="text-[#121921] font-bold ">{jobs.name}</p>
-                <p className="text-[#757C91] text-sm">{jobs.email}</p>
-              </div>
-            </div>
-          </div>
+    <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#E6ECFF] text-lg font-semibold text-[#37436C]">
+      {initials}
+    </span>
+  );
+}
+
+export default function JobDetails({ job }: { job: FeedbackListItem }) {
+  const submittedDate = job.timeline?.submitted?.date ?? '—';
+  const submittedTime = job.timeline?.submitted?.time;
+
+  return (
+    <section className="space-y-6 px-6 py-6">
+      <div className="flex items-center gap-4">
+        {renderAvatar(job.icon, job.name)}
+        <div className="space-y-1">
+          <p className="text-lg font-semibold text-[#121921]">{job.name ?? 'Anonymous user'}</p>
+          {job.email ? <p className="text-sm text-[#757C91]">{job.email}</p> : null}
         </div>
       </div>
 
-      <div className="space-y-3 ">
-        <h2 className="text-lg text-[#3B4152] font-bold">{jobs.reportsDetails?.reason}</h2>
-        <p className="text-sm text-[#3B4152] leading-6">{jobs.reportsDetails?.description}</p>
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#97A0B8]">Submitted on</p>
+          <p className="text-sm font-semibold text-[#121921]">
+            {submittedDate}
+            {submittedTime ? ` • ${submittedTime}` : ''}
+          </p>
+        </div>
+
+        <div className="space-y-3 rounded-2xl border border-[#EAECF5] bg-[#F9FAFF] px-4 py-5">
+          <p className="text-base font-semibold text-[#121921]">
+            {job.reportsDetails?.reason ?? 'Feedback'}
+          </p>
+          <p className="text-sm leading-6 text-[#3B4152]">
+            {job.reportsDetails?.description ?? 'No additional comments provided.'}
+          </p>
+        </div>
       </div>
     </section>
   );

@@ -219,7 +219,7 @@ export interface FeedbackListItem {
 // Shared sorting types
 export type SortDirection = 'asc' | 'desc';
 export type UserSortKey = 'name' | 'email' | 'phone' | 'status' | 'dob';
-export type ProviderSortKey = 'name' | 'email' | 'phone' | 'status' | 'dob' | 'category';
+export type ProviderSortKey = 'name' | 'email' | 'phone' | 'status' | 'createdAt' | 'category';
 export type JobSortKey =
   | 'jobId'
   | 'client'
@@ -243,6 +243,7 @@ export interface ReportDetails {
 
 export interface ReportEntry {
   jobId: string;
+  uuid?: string;
   reporter?: PersonRef & { service?: string };
   reportedParty?: PersonRef;
   amount?: string;
@@ -277,6 +278,7 @@ export type TeamRole = string;
 
 export interface TeamMember {
   jobId: string; // internal ID like TM0001
+  uuid?: string;
   name: string;
   email: string;
   emailaddress?: string; // mirrors email for UI compatibility
@@ -288,6 +290,7 @@ export interface TeamMember {
   date: string; // date added
   lastLogin: string;
   permissions: string[];
+  roleUuid?: string;
 }
 
 // Roles (team roles model)
@@ -295,4 +298,8 @@ export interface Role {
   id: string;
   title: string;
   permissions: string[];
+  uuid?: string;
+  description?: string;
+  fullAccess?: boolean;
+  permissionCodes?: string[];
 }

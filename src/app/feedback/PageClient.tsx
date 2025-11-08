@@ -1,61 +1,90 @@
 'use client';
-import { feedbackDataDetails } from '@/data/feedbackDummyData';
-import { useState } from 'react';
+
+import { useState, useMemo, useEffect } from 'react';
 import JobsTable from '@/components/feedback/JobsTable';
 import UsersPagination from '@/components/feedback/UsersPagination';
 import SlideOverModal from '@/components/ui/SlideOverModal';
 import JobDetails from '@/components/feedback/JobDetails';
 import type { FeedbackListItem } from '@/types/types';
+import { useAdminFeedbacks } from '@/features/feedback/hooks';
+import { mapAdminFeedbackToFeedbackItem } from '@/features/feedback/utils';
 
 export default function FeedbackPage() {
   const [openJob, setOpenJob] = useState<boolean>(false);
   const [selectedJob, setSelectedJob] = useState<FeedbackListItem | null>(null);
-
-  const jobsData = feedbackDataDetails;
-
-  // --- Job filtering ---
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 10;
+  const defaultPageSize = 10;
 
-  if (!jobsData) return <p>No jobs found</p>;
+  const { data, isLoading, error } = useAdminFeedbacks({
+    page: currentPage,
+    limit: defaultPageSize,
+  });
 
-  // 4. Pagination
-  const totalItems = jobsData.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-  const paginatedData = jobsData.slice(startIndex, endIndex);
+  const feedbackData = useMemo<FeedbackListItem[]>(() => {
+    return (data?.data ?? []).map(mapAdminFeedbackToFeedbackItem);
+  }, [data]);
+
+  const pageSize = data?.pagination?.limit ?? defaultPageSize;
+  const totalItems = data?.pagination?.total ?? feedbackData.length;
+  const totalPages = data?.pagination?.pages ?? Math.max(1, Math.ceil(totalItems / pageSize));
+  const hasFeedback = feedbackData.length > 0;
+
+  useEffect(() => {
+    if (!data?.pagination?.pages) {
+      return;
+    }
+    if (currentPage > data.pagination.pages) {
+      setCurrentPage(Math.max(1, data.pagination.pages));
+    }
+  }, [data?.pagination?.pages, currentPage]);
 
   return (
     <div className="py-6 space-y-4">
       {/* Job Details Modal */}
-      <SlideOverModal open={openJob} onOpenChange={setOpenJob} title="Job details">
+      <SlideOverModal open={openJob} onOpenChange={setOpenJob} title="Feedback details">
         {selectedJob && (
-          <JobDetails usersData={jobsData} jobs={selectedJob} onOpenModal={() => {}} />
+          <JobDetails job={selectedJob} />
         )}
       </SlideOverModal>
 
       {/* Page Header */}
       <div className="px-6 bg-white">
-        <h1 className="font-bold text-[#3B4152]">{jobsData.length} Feedback</h1>
+        <h1 className="font-bold text-[#3B4152]">
+          {totalItems.toLocaleString('en-US')} Feedback
+        </h1>
       </div>
 
       {/* Jobs Table */}
-      <JobsTable
-        jobs={paginatedData}
-        onOpenJobDetails={(job) => {
-          setSelectedJob(job);
-          setOpenJob(true);
-        }}
-      />
+      {error ? (
+        <div className="px-6 py-10 text-center text-sm text-[#EA3829]">
+          Unable to load feedback. {error.message}
+        </div>
+      ) : isLoading && !data ? (
+        <div className="px-6 py-10 text-center text-sm text-[#757C91]">Loading feedback…</div>
+      ) : hasFeedback ? (
+        <JobsTable
+          jobs={feedbackData}
+          onOpenJobDetails={(job) => {
+            setSelectedJob(job);
+            setOpenJob(true);
+          }}
+        />
+      ) : (
+        <div className="px-6 py-10 text-center text-sm text-[#757C91]">
+          No feedback submitted yet.
+        </div>
+      )}
 
       {/* Pagination */}
       <UsersPagination
         currentPage={currentPage}
         totalPages={totalPages}
         totalItems={totalItems}
-        itemsPerPage={itemsPerPage}
-        onPageChange={setCurrentPage}
+        itemsPerPage={pageSize}
+        onPageChange={(page) => {
+          if (page < 1 || page > totalPages) return;
+          setCurrentPage(page);
+        }}
       />
     </div>
   );

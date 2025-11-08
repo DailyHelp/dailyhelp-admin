@@ -4,27 +4,31 @@ import TeamsStatusDropdown from '../ui/TeamsStatusDropdown';
 import SearchInput from '../ui/SearchInput';
 import { Plus } from 'lucide-react';
 
-import type { TeamMember } from '@/types/types';
 import Button from '@/components/ui/Button';
 
 export default function JobsFiltersBar({
-  jobs,
-  status,
-  setStatus,
+  roleFilter,
+  setRoleFilter,
   search,
   setSearch,
   onOpenJobDetails,
+  roleOptions,
 }: {
-  jobs: TeamMember[];
-  status: string;
-  setStatus: (s: string) => void;
+  roleFilter: string;
+  setRoleFilter: (s: string) => void;
   search: string;
   setSearch: (s: string) => void;
   onOpenJobDetails: () => void;
+  roleOptions: Array<{ label: string; value: string }>;
 }) {
   return (
     <div className="flex gap-4 ">
-      <TeamsStatusDropdown value={status} onChange={setStatus} className="w-fit" />
+      <TeamsStatusDropdown
+        value={roleFilter}
+        onChange={setRoleFilter}
+        className="w-fit"
+        options={roleOptions}
+      />
       <SearchInput
         value={search}
         onChange={(e) => setSearch(e.target.value)}

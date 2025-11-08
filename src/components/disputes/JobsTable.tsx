@@ -17,6 +17,47 @@ export interface DisputesJobsTableProps {
   onOpenChat: (chat: any, job: JobItem) => void;
 }
 
+function getInitials(name?: string): string {
+  if (!name) {
+    return 'DH';
+  }
+  const parts = name.split(' ').filter(Boolean);
+  if (parts.length === 0) {
+    return 'DH';
+  }
+  if (parts.length === 1) {
+    return parts[0]?.[0]?.toUpperCase() ?? 'D';
+  }
+  const first = parts[0]?.[0] ?? '';
+  const last = parts[parts.length - 1]?.[0] ?? '';
+  return `${first}${last}`.toUpperCase();
+}
+
+function renderAvatar(source: unknown, fallbackName?: string) {
+  const initials = getInitials(fallbackName);
+
+  if (typeof source === 'string' && source.trim().length > 0) {
+    return (
+      <img
+        src={source}
+        alt={fallbackName ?? 'Avatar'}
+        className="h-10 w-10 rounded-full object-cover"
+      />
+    );
+  }
+
+  if (typeof source === 'function') {
+    const Component = source as React.ComponentType<React.SVGProps<SVGSVGElement>>;
+    return <Component className="h-10 w-10 rounded-full" />;
+  }
+
+  return (
+    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F0F4FF] text-sm font-semibold text-[#3B4152]">
+      {initials}
+    </span>
+  );
+}
+
 export default function JobsUsersTable({
   jobs,
   onSortChange,
@@ -76,29 +117,19 @@ export default function JobsUsersTable({
             <tr key={job.jobId} className="border-b border-[#D6DBE7] py-4 text-sm">
               <td className="px-4 py-3 text-[#3B4152]">
                 <div className="flex items-center gap-4">
-                  {(() => {
-                    const Icon = job.client?.icon as unknown as React.ComponentType<
-                      React.SVGProps<SVGSVGElement>
-                    >;
-                    return Icon ? <Icon className="rounded-full w-10 h-10 center" /> : null;
-                  })()}
+                  {renderAvatar(job.client?.icon, job.client?.name)}
                   <p>{job.client?.name}</p>
                 </div>
               </td>
               <td className="px-4 py-4 text-[#3B4152] flex items-center gap-4">
-                {(() => {
-                  const Icon = job.serviceProvider?.icon as unknown as React.ComponentType<
-                    React.SVGProps<SVGSVGElement>
-                  >;
-                  return Icon ? <Icon className="rounded-full w-10 h-10 center" /> : null;
-                })()}
+                {renderAvatar(job.serviceProvider?.icon, job.serviceProvider?.name)}
                 <div className="space-y-2">
                   <p>{job.serviceProvider?.name}</p>
                   <p className="text-sm text-[#757C91]">{job.serviceProvider?.role}</p>
                 </div>
               </td>
-              <td className="px-4 py-4 text-[#3B4152]">{(job as any).reason} </td>
-              <td className="px-4 py-4 text-[#3B4152]">{job.timeline?.submitted?.date}</td>
+              <td className="px-4 py-4 text-[#3B4152]">{(job as any).reason ?? '—'} </td>
+              <td className="px-4 py-4 text-[#3B4152]">{job.timeline?.submitted?.date ?? '—'}</td>
 
               <td className="px-4 py-4">
                 <JobsStatusBadge status={job.status} />

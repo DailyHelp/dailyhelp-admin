@@ -1,9 +1,9 @@
 'use client';
+import type { ComponentType, SVGProps } from 'react';
 import AcceptIcon from '@/assets/accept-icon.svg';
 import CheckedIcon from '@/assets/checked-icon.svg';
-import DividerIcon from '@/assets/divider-icon.svg';
 import JobsStatusBadge from './JobsStatusBadge';
-import type { JobItem, ChatThread } from '@/types/types';
+import type { JobItem } from '@/types/types';
 import Button from '@/components/ui/Button';
 
 export default function JobDetails({
@@ -12,230 +12,298 @@ export default function JobDetails({
   onSuccess,
 }: {
   jobs: JobItem;
-  onOpenChat: (chat: ChatThread[] | undefined) => void;
+  onOpenChat: (job: JobItem) => void;
   onSuccess?: () => void;
 }) {
-  return (
-    <section className="px-6 py-4">
-      {/* Header */}
-      <div className="space-y-6 border-b border-[#D6DBE7] pb-4">
-        <h2 className="text-[#3B4152] text-sm font-bold">{jobs.jobId}</h2>
-        <div className=" flex items-center gap-20">
-          <div className="space-y-2">
-            <p className="text-[#757C91] text-sm">Client</p>
-            <div className="flex gap-2 items-center">
-              {(() => {
-                const Icon = jobs.client?.icon as unknown as React.ComponentType<
-                  React.SVGProps<SVGSVGElement>
-                >;
-                return Icon ? <Icon className="rounded-full w-14 h-14" /> : null;
-              })()}
-              <p className="text-[#121921] font-bold underline">{jobs.client?.name}</p>
-            </div>
-          </div>
+  const rawClientIcon = jobs.client?.icon;
+  const ClientIcon =
+    rawClientIcon && typeof rawClientIcon === 'function'
+      ? (rawClientIcon as unknown as ComponentType<SVGProps<SVGSVGElement>>)
+      : null;
 
-          <div className="space-y-2">
-            <p className="text-[#757C91] text-sm">Service provider</p>
-            <div className="flex gap-2 items-center">
-              {(() => {
-                const Icon = jobs.serviceProvider?.icon as unknown as React.ComponentType<
-                  React.SVGProps<SVGSVGElement>
-                >;
-                return Icon ? <Icon className="rounded-full w-14 h-14" /> : null;
-              })()}
-              <div>
-                <p className="text-[#121921] font-bold underline">{jobs.serviceProvider?.name}</p>
-                <p className="text-[#757C91] text-sm">{jobs.serviceProvider?.role}</p>
+  const rawProviderIcon = jobs.serviceProvider?.icon;
+  const ProviderIcon =
+    rawProviderIcon && typeof rawProviderIcon === 'function'
+      ? (rawProviderIcon as unknown as ComponentType<SVGProps<SVGSVGElement>>)
+      : null;
+
+  const formatCurrency = (value?: string) => {
+    if (!value) return '₦0';
+    const trimmed = value.trim();
+    return trimmed.startsWith('₦') ? trimmed : `₦${trimmed}`;
+  };
+
+  const formatDateOnly = (value?: string) => {
+    if (!value) {
+      return '—';
+    }
+    const normalized = value.trim();
+    if (!normalized || normalized === '-') {
+      return '—';
+    }
+    return normalized;
+  };
+
+  const formatDateTime = (point?: { date?: string; time?: string }) => {
+    if (!point) return '—';
+    const parts = [point.date, point.time]
+      .map((part) => part?.trim())
+      .filter((part) => part && part !== '-');
+    return parts.length > 0 ? parts.join(', ') : '—';
+  };
+
+  const timelineSteps = [
+    jobs.timeline?.accepted && {
+      key: 'accepted',
+      label: 'Offer Accepted',
+      value: formatDateTime(jobs.timeline.accepted),
+    },
+    jobs.timeline?.started && {
+      key: 'started',
+      label: 'Job Start',
+      value: formatDateTime(jobs.timeline.started),
+    },
+    jobs.disputeDetails &&
+      jobs.timeline?.submitted && {
+        key: 'dispute',
+        label: 'Dispute',
+        value: formatDateTime(jobs.timeline.submitted),
+      },
+    jobs.timeline?.ended &&
+      jobs.timeline.ended.date &&
+      jobs.timeline.ended.date.trim() !== '-' && {
+        key: 'ended',
+        label: 'Job End',
+        value: formatDateTime(jobs.timeline.ended),
+      },
+    jobs.timeline?.resolution &&
+      jobs.timeline.resolution.date &&
+      jobs.timeline.resolution.date.trim() !== '-' && {
+        key: 'resolution',
+        label: 'Resolution',
+        value: formatDateTime(jobs.timeline.resolution),
+      },
+  ].filter(Boolean) as Array<{ key: string; label: string; value: string }>;
+
+  const inspoItems = (() => {
+    if (!jobs.jobInspo) return [];
+    const baseIcons = Array.isArray(jobs.jobInspo)
+      ? jobs.jobInspo
+      : Array.from({ length: 4 }, () => jobs.jobInspo);
+    const icons = baseIcons.slice(0, 5);
+    return icons
+      .map((icon, index) => {
+        if (!icon) return null;
+        if (typeof icon === 'string') {
+          return (
+            <img
+              key={`inspo-${index}`}
+              src={icon}
+              alt="Job inspiration"
+              className="h-16 w-16 rounded-2xl object-cover"
+            />
+          );
+        }
+
+        const InspoComponent = icon as unknown as ComponentType<SVGProps<SVGSVGElement>>;
+        return <InspoComponent key={`inspo-${index}`} className="h-16 w-16 rounded-2xl" />;
+      })
+      .filter(Boolean);
+  })();
+
+  const disputeImages = (() => {
+    const images = jobs.disputeDetails?.images;
+    if (!images) return [];
+    const baseImages = Array.isArray(images) ? images : Array.from({ length: 4 }, () => images);
+    const entries = baseImages.slice(0, 5);
+    return entries
+      .map((img, index) => {
+        if (!img) return null;
+        if (typeof img === 'string') {
+          return (
+            <img
+              key={`dispute-${index}`}
+              src={img}
+              alt="Dispute evidence"
+              className="h-16 w-16 rounded-2xl object-cover"
+            />
+          );
+        }
+
+        const ImgComponent = img as unknown as ComponentType<SVGProps<SVGSVGElement>>;
+        return <ImgComponent key={`dispute-${index}`} className="h-16 w-16 rounded-2xl" />;
+      })
+      .filter(Boolean);
+  })();
+
+  const resolutionDetails =
+    typeof jobs.resolutionDetails === 'object' ? jobs.resolutionDetails : undefined;
+
+  return (
+    <section className="px-6 py-6">
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="space-y-6">
+          <h2 className="text-2xl font-semibold text-[#121921]">{jobs.jobId}</h2>
+          <div className="grid gap-8 md:grid-cols-2">
+            <div className="flex items-center gap-4">
+              {ClientIcon ? (
+                <ClientIcon className="h-16 w-16 rounded-full" />
+              ) : (
+                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#F1F4FF] text-lg font-semibold text-[#3B4152]">
+                  {jobs.client?.name?.[0] ?? 'C'}
+                </span>
+              )}
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#97A0B8]">
+                  Client
+                </p>
+                <p className="text-lg font-semibold text-[#121921] underline underline-offset-4">
+                  {jobs.client?.name ?? '—'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              {ProviderIcon ? (
+                <ProviderIcon className="h-16 w-16 rounded-full" />
+              ) : (
+                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#F1F4FF] text-lg font-semibold text-[#3B4152]">
+                  {jobs.serviceProvider?.name?.[0] ?? 'S'}
+                </span>
+              )}
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#97A0B8]">
+                  Service provider
+                </p>
+                <p className="text-lg font-semibold text-[#121921] underline underline-offset-4">
+                  {jobs.serviceProvider?.name ?? '—'}
+                </p>
+                {jobs.serviceProvider?.role && (
+                  <p className="text-sm text-[#757C91]">{jobs.serviceProvider.role}</p>
+                )}
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Duration & Status */}
-      <div className="space-y-6 border-b border-[#D6DBE7] py-4">
-        <div className=" flex items-center justify-between">
+        {/* Meta */}
+        <div className="grid gap-6 border-t border-[#EDF1FF] pt-6 md:grid-cols-4">
           <div className="space-y-2">
-            <p className="text-[#757C91] text-sm">Start date</p>
-            <p className="text-[#3B4152] font-bold ">{jobs.timeline?.started?.date}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#97A0B8]">
+              Start date
+            </p>
+            <p className="text-base font-semibold text-[#1E2538]">
+              {formatDateOnly(jobs.timeline?.started?.date)}
+            </p>
           </div>
-
           <div className="space-y-2">
-            <p className="text-[#757C91] text-sm">End date</p>
-            <p className="text-[#3B4152] font-bold ">{jobs.timeline?.ended?.date}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#97A0B8]">
+              End date
+            </p>
+            <p className="text-base font-semibold text-[#1E2538]">
+              {formatDateOnly(jobs.timeline?.ended?.date)}
+            </p>
           </div>
-
           <div className="space-y-2">
-            <p className="text-[#757C91] text-sm">Status</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#97A0B8]">
+              Status
+            </p>
             <JobsStatusBadge status={jobs.status} />
           </div>
-
-          <Button
-            variant="secondary"
-            onClick={() => {
-              onOpenChat(jobs.chat); // 👈 pass chat from props
-            }}
-            className="rounded-2xl text-[#017441]"
-          >
-            View Chat
-          </Button>
+          <div className="flex items-start justify-end md:justify-start">
+            <Button
+              variant="secondary"
+              onClick={() => onOpenChat(jobs)}
+              className="rounded-full border border-[#017441] bg-white px-5 py-2 text-sm font-semibold text-[#017441] shadow-none transition-colors hover:bg-[#F3FCF4]"
+            >
+              View chat
+            </Button>
+          </div>
         </div>
-      </div>
-      {/* Amount  */}
-      <div className="space-y-3 border-b border-[#D6DBE7] py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold">₦{jobs.amount}</h2>
+
+        {/* Summary */}
+        <div className="space-y-6 border-t border-[#EDF1FF] pt-6">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#97A0B8]">
+              Amount
+            </p>
+            <h3 className="text-2xl font-semibold text-[#121921]">{formatCurrency(jobs.amount)}</h3>
             {jobs.timeline?.accepted && (
-              <p className="flex text-xs gap-2 text-[#757C91]">
-                <AcceptIcon /> Accepted on {jobs.timeline.accepted.date}{' '}
-                {jobs.timeline.accepted.time}
+              <p className="flex items-center gap-2 text-sm text-[#757C91]">
+                <AcceptIcon className="h-4 w-4" />
+                Accepted on {formatDateTime(jobs.timeline.accepted)}
               </p>
             )}
           </div>
-        </div>
 
-        {/* Status reason */}
-        {jobs.statusReason && (
-          <p className="bg-[#FEF6F6] text-[#F0443A] text-sm rounded-xl flex px-2 py-1 w-fit items-center">
-            {jobs.statusReason}
-          </p>
-        )}
-
-        {/* Description */}
-        <p className="text-[#3B4152] text-sm">{jobs.jobDesc}</p>
-
-        {/* Inspo Images */}
-        {jobs.jobInspo && (
-          <div className="flex gap-[2px]">
-            {(() => {
-              const Inspo = jobs.jobInspo as unknown as React.ComponentType<
-                React.SVGProps<SVGSVGElement>
-              >;
-              return (
-                <>
-                  <Inspo />
-                  <Inspo />
-                  <Inspo />
-                </>
-              );
-            })()}
-          </div>
-        )}
-      </div>
-      {/* ✅ Dispute Section */}
-      {jobs.status === 'Disputed' && (
-        <div className="space-y-1 border-b border-[#D6DBE7] py-4">
-          <h3 className="text-[#757C91] font-bold text-sm">DISPUTE DETAILS</h3>
-          <p className="text-sm font-bold text-[#3B4152] pt-2">{jobs.disputeDetails?.issue}</p>
-          <p className="text-[#3B4152] text-sm">{jobs.disputeDetails?.description}</p>
-          {jobs.disputeDetails?.images && (
-            <div className="flex gap-[2px] mt-2">
-              {(() => {
-                const Img = jobs.disputeDetails?.images as unknown as React.ComponentType<
-                  React.SVGProps<SVGSVGElement>
-                >;
-                return Img ? (
-                  <>
-                    <Img className="w-12 h-12" />
-                    <Img className="w-12 h-12" />
-                    <Img className="w-12 h-12" />
-                    <Img className="w-12 h-12" />
-                  </>
-                ) : null;
-              })()}
-            </div>
+          {jobs.statusReason && (
+            <span className="inline-flex items-center rounded-2xl border border-[#F8B4B0] bg-[#FEF6F6] px-3 py-1 text-sm font-medium text-[#F0443A]">
+              {jobs.statusReason}
+            </span>
           )}
 
-          {/* Resolution */}
-          {jobs.resolutionDetails && (
-            <div className="space-y- border-t border-[#D6DBE7] mt-4 pt-4">
-              <h4 className="text-[#757C91] font-bold text-sm ">DISPUTE RESOLUTION</h4>
-              {(() => {
-                const res =
-                  typeof jobs.resolutionDetails === 'object'
-                    ? (jobs.resolutionDetails as any)
-                    : undefined;
-                return (
-                  <>
-                    <p className="text-sm font-bold text-[#FF6B01] pt-3">{res?.issue}</p>
-                    <p className="text-xl font-bold pb-1">₦{res?.refundAmount}</p>
-                    <p className="text-[#3B4152] text-sm">{res?.description}</p>
-                  </>
-                );
-              })()}
+          {jobs.jobDesc && <p className="text-sm leading-6 text-[#3B4152]">{jobs.jobDesc}</p>}
+
+          {inspoItems.length > 0 && <div className="flex gap-2">{inspoItems}</div>}
+        </div>
+
+        {/* Dispute */}
+        {jobs.disputeDetails && (
+          <div className="space-y-6 border-t border-[#EDF1FF] pt-6">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#97A0B8]">
+                Dispute details
+              </p>
+              <p className="text-base font-semibold text-[#1E2538]">
+                {jobs.disputeDetails.issue}
+              </p>
+              <p className="text-sm leading-6 text-[#3B4152]">{jobs.disputeDetails.description}</p>
+            </div>
+            {disputeImages.length > 0 && <div className="flex gap-2">{disputeImages}</div>}
+
+            {resolutionDetails && (
+              <div className="space-y-3 rounded-2xl border border-[#FFE3D1] bg-[#FFF7EE] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#FF6B01]">
+                  Dispute resolution
+                </p>
+                <p className="text-base font-semibold text-[#FF6B01]">{resolutionDetails.issue}</p>
+                {resolutionDetails.refundAmount && (
+                  <p className="text-xl font-semibold text-[#121921]">
+                    {formatCurrency(resolutionDetails.refundAmount)}
+                  </p>
+                )}
+                <p className="text-sm leading-6 text-[#3B4152]">{resolutionDetails.description}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Timeline */}
+        <div className="space-y-6 border-t border-[#EDF1FF] pt-6">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.1em] text-[#97A0B8]">
+            Job timeline
+          </h3>
+          {timelineSteps.length === 0 ? (
+            <p className="text-sm text-[#757C91]">No timeline events available.</p>
+          ) : (
+            <div className="space-y-6">
+              {timelineSteps.map((step, index) => (
+                <div key={step.key} className="flex items-start gap-4">
+                  <div className="flex flex-col items-center">
+                    <CheckedIcon className="h-4 w-4 text-[#3B4152]" />
+                    {index < timelineSteps.length - 1 && (
+                      <span className="mt-2 h-12 w-px bg-[#D6DBE7]" />
+                    )}
+                  </div>
+                  <div className="flex flex-1 justify-between text-sm">
+                    <p className="font-medium text-[#3B4152]">{step.label}</p>
+                    <p className="text-[#757C91]">{step.value}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
-      )}
-      {/* Timeline */}
-      <div className="py-4">
-        <h2 className="text-[#3B4152] text-sm font-bold">JOB TIMELINE</h2>
-      </div>
-
-      <div className="">
-        {/* Offer Accepted */}
-        {jobs.timeline?.accepted && (
-          <div className="relative flex items-start">
-            <div className="flex flex-col items-center">
-              <CheckedIcon />
-              <DividerIcon />
-            </div>
-            <div className="ml-4 text-sm flex justify-between grow">
-              <p className="text-[#757C91]">Offer Accepted</p>
-              <p className="text-[#121921]">
-                {jobs.timeline.accepted.date} {jobs.timeline.accepted.time}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Job Start */}
-        {jobs.timeline?.started && (
-          <div className="relative flex items-start">
-            <div className="flex flex-col items-center">
-              <CheckedIcon />
-              <DividerIcon />
-            </div>
-            <div className="ml-4 text-sm flex justify-between grow">
-              <p className="text-[#757C91]">Job Start</p>
-              <p className="text-[#121921]">
-                {jobs.timeline.started.date} {jobs.timeline.started.time}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Job End */}
-        {jobs.timeline?.ended && (
-          <div className="relative flex items-start">
-            <div className="flex flex-col items-center">
-              <CheckedIcon />
-              <DividerIcon />
-            </div>
-            <div className="ml-4 text-sm flex justify-between grow">
-              <p className="text-[#757C91]">Job End</p>
-              <p className="text-[#121921]">
-                {jobs.timeline.ended.date} {jobs.timeline.ended.time}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Job End */}
-        {jobs.timeline?.resolution && (
-          <div className="relative flex items-start">
-            <div className="flex flex-col items-center">
-              <CheckedIcon />
-            </div>
-            <div className="ml-4 text-sm flex justify-between grow">
-              <p className="text-[#757C91]">Resolution</p>
-              <p className="text-[#121921]">
-                {jobs.timeline.resolution.date} {jobs.timeline.resolution.time}
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </section>
   );

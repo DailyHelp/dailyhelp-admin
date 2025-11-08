@@ -1,44 +1,69 @@
 'use client';
-import { TEAM_ROLES } from '@/data/teamMembersDummyData';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { TeamMember } from '@/types/types';
 import Button from '@/components/ui/Button';
+import { useUpdateAdminTeamMemberRole } from '@/features/team-members/hooks';
 
 interface JobDetailsProps {
-  usersData: TeamMember[];
-  jobs: TeamMember;
-  onOpenModal?: (type: string) => void;
+  member: TeamMember;
+  roleOptions: Array<{ label: string; value: string }>;
   onSuccess?: () => void;
 }
 
-export default function JobDetails({ usersData, jobs, onOpenModal, onSuccess }: JobDetailsProps) {
-  const [role, setRole] = useState(TEAM_ROLES[0] || 'Admin');
-  const [loading, setLoading] = useState(false);
+export default function JobDetails({ member, roleOptions, onSuccess }: JobDetailsProps) {
+  const initialRole = useMemo(
+    () => member.roleUuid ?? roleOptions[0]?.value ?? '',
+    [member.roleUuid, roleOptions],
+  );
+  const [role, setRole] = useState(initialRole);
+  const updateRoleMutation = useUpdateAdminTeamMemberRole();
+
+  useEffect(() => {
+    setRole(initialRole);
+  }, [initialRole]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
+    if (!member.uuid) {
+      toast.error('Unable to update role: team member id is missing.', { duration: 3000 });
+      return;
+    }
+    if (role === initialRole || !role) {
+      onSuccess?.();
+      return;
+    }
     try {
-      // Simulate request to update role
-      await new Promise((res) => setTimeout(res, 800));
+      await updateRoleMutation.mutateAsync({
+        uuid: member.uuid,
+        payload: {
+          roleUuid: role,
+          roleUuids: [role],
+        },
+      });
       toast.success('Role updated successfully', { duration: 2500 });
-      onSuccess?.(); // close modal or refresh data
-    } finally {
-      setLoading(false);
+      onSuccess?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to update role.';
+      toast.error(message, { duration: 3000 });
     }
   };
 
   const handleCancel = () => {
-    setRole(jobs?.role || TEAM_ROLES[0] || 'Admin'); // Reset to original role
+    setRole(initialRole);
     onSuccess?.();
   };
+
+  const selectedRoleLabel =
+    roleOptions.find((option) => option.value === role)?.label ?? member.role ?? '—';
+
+  const isSaveDisabled = !role || role === initialRole || updateRoleMutation.isPending;
 
   return (
     <div className="h-full ">
       <div className="px-6 py-4">
-        <h2 className="text-[#3B4152] font-semibold text-3xl">{jobs.name}</h2>
-        <p className="text-[#757C91] text-sm">{jobs.emailaddress}</p>
+        <h2 className="text-[#3B4152] font-semibold text-3xl">{member.name}</h2>
+        <p className="text-[#757C91] text-sm">{member.emailaddress ?? member.email}</p>
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col h-[90%]">
         <div className="px-6  space-y-3">
@@ -49,12 +74,15 @@ export default function JobDetails({ usersData, jobs, onOpenModal, onSuccess }: 
               onChange={(e) => setRole(e.target.value)}
               className="w-full p-[12px] bg-[#F9F9FB] text-sm rounded-xl focus:outline-none border border-transparent focus:border-[#D6DBE7]"
             >
-              {TEAM_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
+              {roleOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
+            <p className="text-[#99A1B3] text-xs mt-2">
+              Current role: <span className="font-medium text-[#3B4152]">{selectedRoleLabel}</span>
+            </p>
           </div>
         </div>
 
@@ -63,7 +91,9 @@ export default function JobDetails({ usersData, jobs, onOpenModal, onSuccess }: 
             <Button type="button" onClick={handleCancel} variant="secondary">
               Cancel
             </Button>
-            <Button type="submit">{loading ? 'Saving...' : 'Save changes'}</Button>
+            <Button type="submit" disabled={isSaveDisabled}>
+              {updateRoleMutation.isPending ? 'Saving...' : 'Save changes'}
+            </Button>
           </div>
         </div>
       </form>

@@ -1,40 +1,62 @@
 'use client';
 
-import { useState } from 'react';
-import { TEAM_ROLES } from '@/data/teamMembersDummyData';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import { useCreateAdminTeamMember } from '@/features/team-members/hooks';
 
-export default function AddMemberForm({ onSuccess }: { onSuccess?: () => void }) {
+interface AddMemberFormProps {
+  onSuccess?: () => void;
+  roleOptions: Array<{ label: string; value: string }>;
+}
+
+export default function AddMemberForm({ onSuccess, roleOptions }: AddMemberFormProps) {
+  const defaultRole = useMemo(() => roleOptions[0]?.value ?? '', [roleOptions]);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState(TEAM_ROLES[0] || 'Admin');
-  const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState(defaultRole);
+  const createTeamMemberMutation = useCreateAdminTeamMember();
 
-  const isDisabled = !lastName || !email || !role || loading;
+  useEffect(() => {
+    setRole((prev) => (prev ? prev : defaultRole));
+  }, [defaultRole]);
+
+  const trimmedFirstName = firstName.trim();
+  const trimmedLastName = lastName.trim();
+  const trimmedEmail = email.trim();
+  const isDisabled =
+    !trimmedLastName || !trimmedFirstName || !trimmedEmail || !role || createTeamMemberMutation.isPending;
 
   const handleCancel = () => {
     setFirstName('');
     setLastName('');
     setEmail('');
-    setRole(TEAM_ROLES[0] || 'Admin');
-    setLoading(false);
+    setRole(defaultRole);
     onSuccess?.(); // close modal
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isDisabled) return;
-    setLoading(true);
     try {
-      // Simulate request
-      await new Promise((res) => setTimeout(res, 800));
-      toast.success('Invite sent', { duration: 2500 });
+      await createTeamMemberMutation.mutateAsync({
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
+        email: trimmedEmail,
+        roleUuid: role,
+        roleUuids: role ? [role] : undefined,
+      });
+      toast.success('Team member invited', { duration: 2500 });
       onSuccess?.();
-    } finally {
-      setLoading(false);
+      setFirstName('');
+      setLastName('');
+      setEmail('');
+      setRole(defaultRole);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to create team member.';
+      toast.error(message, { duration: 3000 });
     }
   };
 
@@ -75,9 +97,9 @@ export default function AddMemberForm({ onSuccess }: { onSuccess?: () => void })
               onChange={(e) => setRole(e.target.value)}
               className="w-full p-[12px] bg-[#F9F9FB] text-sm rounded-xl focus:outline-none border border-transparent focus:border-[#D6DBE7]"
             >
-              {TEAM_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
+              {roleOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -90,7 +112,7 @@ export default function AddMemberForm({ onSuccess }: { onSuccess?: () => void })
               Cancel
             </Button>
             <Button type="submit" disabled={isDisabled}>
-              {loading ? 'Sending...' : 'Send invite'}
+              {createTeamMemberMutation.isPending ? 'Sending...' : 'Send invite'}
             </Button>
           </div>
         </div>

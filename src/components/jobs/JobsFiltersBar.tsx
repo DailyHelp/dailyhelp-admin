@@ -8,6 +8,7 @@ export interface JobsFiltersBarProps {
   setStatus: (s: string) => void;
   search: string;
   setSearch: (s: string) => void;
+  className?: string;
 }
 
 export default function JobsFiltersBar({
@@ -15,14 +16,16 @@ export default function JobsFiltersBar({
   setStatus,
   search,
   setSearch,
+  className,
 }: JobsFiltersBarProps) {
   return (
-    <div className="flex gap-4 ">
-      <JobStatusDropdown value={status} onChange={setStatus} className="w-fit" />
+    <div className={`flex flex-wrap items-center gap-3 ${className ?? ''}`}>
+      <JobStatusDropdown value={status} onChange={setStatus} className="w-[130px]" />
       <SearchInput
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search Job ID..."
+        className="min-w-[220px] max-w-[260px]"
       />
     </div>
   );

@@ -28,17 +28,17 @@ export default function Modal({ open, onOpenChange, title, children }: ModalProp
           "
         >
           {/* header */}
-          <div className="flex justify-between items-center p-4 border-b border-[#F1F2F4]">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-[#F1F2F4]">
             <Dialog.Title className="text-[16px] px-1 font-bold">{title}</Dialog.Title>
             <Dialog.Close asChild>
-              <Button variant="secondary" className="p-3">
+              <Button variant="icon" className="h-10 w-10 rounded-full border border-[#EAECF5] bg-white">
                 <CloseIcon />
               </Button>
             </Dialog.Close>
           </div>
 
           {/* body */}
-          <div className="max-h-[75vh] overflow-auto p-">{children}</div>
+          <div className="max-h-[75vh] overflow-auto px-6 py-6">{children}</div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

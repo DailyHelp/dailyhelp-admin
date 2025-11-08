@@ -1,5 +1,4 @@
 'use client';
-import { disputesDataDetails } from '@/data/disputesDummyData';
 import { useState, useMemo, useEffect } from 'react';
 import JobsFiltersBar from '@/components/disputes/JobsFiltersBar';
 import JobsTable from '@/components/disputes/JobsTable';
@@ -11,6 +10,11 @@ import ResolutionModal from '@/components/disputes/ResolutionModal';
 import Modal from '@/components/ui/Modal';
 import { modalContent } from '@/components/disputes/ResolutionModal';
 import type { JobItem, SortConfig, JobSortKey, ChatThread } from '@/types/types';
+import { useAdminJobDisputes } from '@/features/disputes/hooks';
+import {
+  mapAdminJobDisputeToJobItem,
+  mapDisputeStatusFilterToApi,
+} from '@/features/disputes/utils';
 
 export default function DisputesPage() {
   const [openJob, setOpenJob] = useState<boolean>(false);
@@ -25,34 +29,41 @@ export default function DisputesPage() {
     key: null,
     direction: 'asc',
   });
-  const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  const jobsData = useMemo<JobItem[]>(() => disputesDataDetails ?? [], []);
-  const hasJobs = jobsData.length > 0;
-  const itemsPerPage = 10;
-  const config = modalType ? modalContent[modalType] : undefined;
+  const defaultPageSize = 10;
+  const apiStatus = statusFilter ? mapDisputeStatusFilterToApi(statusFilter) : undefined;
 
-  // --- Filtering
-  const filteredJobs = useMemo<JobItem[]>(() => {
-    const q = search.toLowerCase();
-    return jobsData.filter((job) => {
-      const matchesSearch = job.jobId.toLowerCase().includes(q);
-      const matchesStatus = statusFilter ? job.status === statusFilter : true;
-      return matchesSearch && matchesStatus;
-    });
-  }, [jobsData, search, statusFilter]);
+  const { data, isLoading, error } = useAdminJobDisputes({
+    page: currentPage,
+    limit: defaultPageSize,
+    status: apiStatus,
+  });
+
+  const pageSize = data?.pagination?.limit ?? defaultPageSize;
+  const totalItems = data?.pagination?.total ?? 0;
+  const totalPages =
+    data?.pagination && typeof data.pagination.pages === 'number' && data.pagination.pages > 0
+      ? data.pagination.pages
+      : 1;
+
+  const jobsData = useMemo<JobItem[]>(() => {
+    return (data?.data ?? []).map(mapAdminJobDisputeToJobItem);
+  }, [data]);
+
+  const hasJobs = jobsData.length > 0;
+  const config = modalType ? modalContent[modalType] : undefined;
 
   // --- Sorting
   const sortedData = useMemo<JobItem[]>(() => {
-    if (!sortConfig.key) return filteredJobs;
+    if (!sortConfig.key) return jobsData;
     const key = sortConfig.key;
     const dir = sortConfig.direction;
     const toNum = (v: string | undefined) => Number((v || '').replace(/[^\d]/g, '')) || 0;
     const cmp = (a: string | undefined, b: string | undefined) =>
       (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' });
-    return [...filteredJobs].sort((a, b) => {
+    return [...jobsData].sort((a, b) => {
       let result = 0;
       switch (key) {
         case 'jobId':
@@ -85,19 +96,24 @@ export default function DisputesPage() {
       }
       return dir === 'asc' ? result : -result;
     });
-  }, [filteredJobs, sortConfig]);
+  }, [jobsData, sortConfig]);
 
   // --- Reset pagination on filter/sort
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, sortConfig]);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    if (!data?.pagination?.pages) {
+      return;
+    }
+    if (currentPage > data.pagination.pages) {
+      setCurrentPage(Math.max(1, data.pagination.pages));
+    }
+  }, [data?.pagination?.pages, currentPage]);
 
   // --- Pagination
-  const totalItems = sortedData.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-  const paginatedData = sortedData.slice(startIndex, endIndex);
+  const paginatedData = sortedData;
 
   // --- Handlers
   const handleOpenResolution = (job: JobItem, type: keyof typeof modalContent) => {
@@ -142,17 +158,23 @@ export default function DisputesPage() {
 
       {/* Page Header */}
       <div className="px-6 flex items-center justify-between bg-white">
-        <h1 className="font-bold text-[#3B4152]">{jobsData.length} Disputes</h1>
+        <h1 className="font-bold text-[#3B4152]">
+          {totalItems.toLocaleString('en-US')} Disputes
+        </h1>
         <JobsFiltersBar
           status={statusFilter}
           setStatus={setStatusFilter}
-          search={search}
-          setSearch={setSearch}
         />
       </div>
 
       {/* Jobs Table */}
-      {hasJobs ? (
+      {error ? (
+        <div className="px-6 py-10 text-center text-sm text-[#EA3829]">
+          Unable to load disputes. {error.message}
+        </div>
+      ) : isLoading && !data ? (
+        <div className="px-6 py-10 text-center text-sm text-[#757C91]">Loading disputes...</div>
+      ) : hasJobs ? (
         <>
           <JobsTable
             jobs={paginatedData}
@@ -173,8 +195,11 @@ export default function DisputesPage() {
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={totalItems}
-            itemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
+            itemsPerPage={pageSize}
+            onPageChange={(page) => {
+              if (page < 1 || page > totalPages) return;
+              setCurrentPage(page);
+            }}
           />
         </>
       ) : (

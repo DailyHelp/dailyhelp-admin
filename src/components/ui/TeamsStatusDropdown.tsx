@@ -3,43 +3,49 @@ import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import StatusIcon from '@/assets/status-icon.svg';
 
+const DEFAULT_OPTIONS: Array<{ label: string; value: string }> = [
+  { label: 'All roles', value: '' },
+  { label: 'Super admin', value: 'Super admin' },
+  { label: 'Admin', value: 'Admin' },
+  { label: 'Customer service', value: 'Customer service' },
+];
+
 export interface TeamsStatusDropdownProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  options?: Array<{ label: string; value: string }>;
 }
 
 export default function TeamsStatusDropdown({
   value,
   onChange,
   className,
+  options,
 }: TeamsStatusDropdownProps) {
+  const items = options && options.length > 0 ? options : DEFAULT_OPTIONS;
+
   return (
     <div
-      className={`relative inline-block border border-[#D6DBE7] rounded-xl px-3 bg-[#F9F9FB] ${className ?? ''}`}
+      className={`relative inline-flex items-center gap-2 rounded-xl border border-[#D6DBE7] bg-white px-3 ${
+        className ?? ''
+      }`}
     >
-      <StatusIcon className="text-[#757C91] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-      <select
-        className="appearance-none w-32 text-[#3B4152] text-sm focus:outline-none focus:ring-none py-2 pl-7"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="" className="bg-white">
-          Status
-        </option>
-        <option value="Super admin" className="bg-white">
-          Super admin
-        </option>
-        <option value="Admin" className="bg-white">
-          Admin
-        </option>
-        <option value="Customer service" className="bg-white">
-          Customer service
-        </option>
-      </select>
-
-      {/* Custom icon */}
-      <ChevronDown className="text-[#757C91] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <StatusIcon className="text-[#757C91]" />
+      <div className="relative flex-1">
+        <select
+          className="h-9 w-36 appearance-none bg-transparent pr-6 text-sm font-medium text-[#3B4152] focus:outline-none"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {items.map((item) => (
+            <option key={item.value} value={item.value} className="bg-white">
+              {item.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none text-[#99A1B3] absolute right-0 top-1/2 -translate-y-1/2" />
+      </div>
     </div>
   );
 }

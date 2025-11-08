@@ -22,35 +22,35 @@ export default function Pagination({
   const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
 
   return (
-    <div className="flex items-center py-6 pl-8 text-sm text-gray-600  w-full">
-      {/* Page controls */}
-      <div className="flex items-center space-x-2">
+    <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 text-sm text-[#757C91]">
+      <div className="flex items-center gap-2">
         <Button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           variant="secondary"
+          className="h-10 w-10 rounded-full border-[#D6DBE7] bg-white text-[#47516B]"
         >
-          <ChevronLeft className="w-6 h-6" />
+          <ChevronLeft className="h-5 w-5" />
         </Button>
 
-        <span className="rounded-xl border py-2 px-[15px] bg-[#F3FCF4] border-[#017441] text-[#017441]">
+        <span className="rounded-full border border-[#017441] bg-[#F3FCF4] px-4 py-2 text-sm font-semibold text-[#017441]">
           {currentPage}
         </span>
 
-        {totalPages >= 2 && <MoreHorizontal className="w-5 h-5 text-gray-600" />}
+        {totalPages > 1 && <MoreHorizontal className="h-5 w-5 text-[#99A1B3]" />}
 
         <Button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
           variant="secondary"
+          className="h-10 w-10 rounded-full border-[#D6DBE7] bg-white text-[#47516B]"
         >
-          <ChevronRight className="w-6 h-6" />
+          <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
 
-      {/* Count display */}
-      <p className="text-sm text-gray-500">
-        Showing results {startIndex + 1}–{endIndex} of {totalItems}
+      <p>
+        Showing results {totalItems === 0 ? 0 : startIndex + 1}–{endIndex} of {totalItems}
       </p>
     </div>
   );

@@ -11,7 +11,7 @@ interface WalletsTableProps {
 
 export default function WalletsTable({ wallet, onEditRole, handleDeleteClick }: WalletsTableProps) {
   if (!wallet || wallet.length === 0) {
-    return <p className="text-gray-500">No wallet transactions found</p>;
+    return <p className="text-[#757C91] text-sm px-6 py-10 text-center">No roles found.</p>;
   }
 
   return (
@@ -34,7 +34,13 @@ export default function WalletsTable({ wallet, onEditRole, handleDeleteClick }: 
           {wallet.map((walletData) => (
             <tr key={walletData.id} className="border-b border-[#D6DBE7] text-[#3B4152] text-sm">
               <td className="px-4 py-6 text-[#3B4152]">{walletData.title}</td>
-              <td className="px-4 py-2 text-[#3B4152]">{walletData.permissions.join(', ')}</td>
+              <td className="px-4 py-2 text-[#3B4152]">
+                {walletData.fullAccess
+                  ? 'Full access to all administrative features'
+                  : walletData.permissions.length > 0
+                  ? walletData.permissions.join(', ')
+                  : '—'}
+              </td>
               <td className="px-4 py-2">
                 <div className="flex items-center gap-6">
                   <Button

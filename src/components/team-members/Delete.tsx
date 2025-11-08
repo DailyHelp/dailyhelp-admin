@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
 import { toast } from 'sonner';
 import Button from '@/components/ui/Button';
+import { useDeleteAdminRole } from '@/features/team-members/hooks';
 
 export default function Delete({
   usersData,
@@ -10,31 +10,30 @@ export default function Delete({
   usersData?: any;
   onSuccess?: () => void;
 }) {
-  const [status, setStatus] = useState<string>(usersData?.status ?? '');
-  const [reason, setReason] = useState<string>('');
-  // ✅ Only require reason if suspending
+  const deleteRoleMutation = useDeleteAdminRole();
+  const roleUuid = typeof usersData === 'object' ? usersData?.uuid : undefined;
+  const isDeleting = deleteRoleMutation.isPending;
 
   const handleCancel = () => {
-    setReason('');
     onSuccess?.(); // close modal if parent passes onSuccess
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // toggle status
-    if (usersData && typeof usersData === 'object') {
-      const newStatus = status === 'Pending' ? 'Resolved' : 'Pending';
-      setStatus(newStatus);
-      if ('status' in usersData) {
-        usersData.status = newStatus;
-      }
+    if (!roleUuid) {
+      toast.error('Unable to determine which role to delete. Please try again.', { duration: 3000 });
+      return;
     }
 
-    toast.success(' Role deleted', { duration: 3000 });
-
-    setReason('');
-    onSuccess?.(); // close modal
+    try {
+      await deleteRoleMutation.mutateAsync({ uuid: roleUuid });
+      toast.success('Role deleted', { duration: 3000 });
+      onSuccess?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to delete role.';
+      toast.error(message, { duration: 3000 });
+    }
   };
 
   return (
@@ -54,8 +53,8 @@ export default function Delete({
               Cancel
             </Button>
 
-            <Button type="submit" variant="danger">
-              Delete
+            <Button type="submit" variant="danger" disabled={isDeleting} className={isDeleting ? 'opacity-60' : ''}>
+              {isDeleting ? 'Deleting…' : 'Delete'}
             </Button>
           </div>
         </div>

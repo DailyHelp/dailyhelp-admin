@@ -35,7 +35,7 @@ const PERMISSION_GROUPS = [
     label: 'Team members',
     children: [
       { key: 'team.manage', label: 'Permission to add/remove team members' },
-      { key: 'team.edit-role', label: 'Permission to edit team member role' },
+      { key: 'team.edit-role', label: 'Permission to edit team member roles' },
       { key: 'team.roles.manage', label: 'Permission to add/remove roles' },
       { key: 'team.roles.edit', label: 'Permission to edit roles' },
     ],

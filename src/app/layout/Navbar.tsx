@@ -8,7 +8,7 @@ const pageTitles: Record<string, string> = {
   '/users': 'Users',
   '/users/[id]': 'Users Profile',
   '/providers': 'Service providers',
-  '/providers/[id]': 'Service providers profile',
+  '/providers/[id]': 'Service Provider details',
   '/jobs': 'Jobs',
   '/disputes': 'Disputes',
   '/reports': 'Reports',
@@ -26,6 +26,10 @@ function getPageTitle(pathname: string): string {
   // handle dynamic routes
   if (pathname.startsWith('/users/')) {
     return pageTitles['/users/[id]'];
+  }
+
+  if (pathname.startsWith('/providers/')) {
+    return pageTitles['/providers/[id]'];
   }
 
   // fallback if no match

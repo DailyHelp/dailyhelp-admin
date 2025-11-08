@@ -1,23 +1,21 @@
 'use client';
 
-// components/StatusBadge.jsx
 import React from 'react';
 
-export const statusStyles: Record<string, string> = {
-  Pending: 'bg-[#FFF3EB] text-[#FF6B01] font-medium',
-  Failed: 'bg-[#FEF6F6] text-[#F0443A]  font-medium',
-  Successful: 'bg-[#E6FFF4] text-[#27A535]  font-medium',
+const STATUS_META: Record<string, { label: string; className: string }> = {
+  PENDING: { label: 'Pending', className: 'bg-[#FFF3EB] text-[#FF6B01]' },
+  FAILED: { label: 'Failed', className: 'bg-[#FEF6F6] text-[#F0443A]' },
+  SUCCESS: { label: 'Successful', className: 'bg-[#E6FFF4] text-[#27A535]' },
+  SUCCESSFUL: { label: 'Successful', className: 'bg-[#E6FFF4] text-[#27A535]' },
 };
 
 export default function WalletsStatusBadge({ status }: { status: string }) {
+  const key = status?.toUpperCase?.() ?? '';
+  const meta = STATUS_META[key] ?? { label: status || '—', className: 'bg-gray-100 text-[#47516B]' };
+
   return (
-    <span
-      className={`
-        "w-fit relative text-xs rounded-sm font-bold flex px-2 py-1 w-fit  items-center",
-        ${statusStyles[status]} || "bg-gray-100 "
-      `}
-    >
-      {status}
+    <span className={`flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold ${meta.className}`}>
+      {meta.label}
     </span>
   );
 }
