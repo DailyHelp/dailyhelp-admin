@@ -199,9 +199,12 @@ export interface SettingsCategoryItem {
   jobId: string;
   category: string;
   subCategories: string[];
-  icon: string;
+  icon?: string;
   reportReasons: SettingsReportReasons;
   jobTips: SettingsTip;
+  uuid?: string;
+  subCategoryCount?: number;
+  iconMissing?: boolean;
 }
 
 export interface FeedbackListItem {

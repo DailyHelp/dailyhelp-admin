@@ -1,11 +1,12 @@
 'use client';
 import { settingsData } from '@/data/settingsDummyData';
 import type { SettingsCategoryItem } from '@/types/types';
+import type { AdminJobTip } from '@/features/settings/types';
 import { Button } from '@/components/ui';
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
 import JobsFiltersBar from '@/components/settings/JobsFiltersBar';
-import ChatsReport from '@/components/settings/ChatsReport';
 import JobsTable from '@/components/settings/JobsTable';
 import UsersPagination from '@/components/settings/UsersPagination';
 import SlideOverModal from '@/components/ui/SlideOverModal';
@@ -17,14 +18,20 @@ import AddMemberForm from '@/components/settings/AddMemberForm';
 import AddRoleForm from '@/components/settings/AddRoleForm';
 import EditRoleSlideOver from '@/components/settings/EditRoleSlideOver';
 import DeleteCategory from '@/components/settings/DeleteCategory';
-import DeclinedOffers from '@/components/settings/DeclinedOffers';
-import CancelOffers from '@/components/settings/CancelOffers';
 import CancelJobs from '@/components/settings/CancelJobs';
 import JobsDisputes from '@/components/settings/JobsDisputes';
 import DeleteAccounts from '@/components/settings/DeleteAccounts';
 import RatingsBadges from '@/components/settings/Ratings-Badges';
 import JobsTips from '@/components/settings/JobsTips';
 import AddTipForm from '@/components/settings/AddTipForm';
+import ChatReportTab from '@/components/settings/tabs/ChatReportTab';
+import OfferDeclineTab from '@/components/settings/tabs/OfferDeclineTab';
+import OfferCancellationTab from '@/components/settings/tabs/OfferCancellationTab';
+import JobCancellationTab from '@/components/settings/tabs/JobCancellationTab';
+import JobDisputeTab from '@/components/settings/tabs/JobDisputeTab';
+import DeleteAccountTab from '@/components/settings/tabs/DeleteAccountTab';
+import { useAdminMainCategories, useAdminJobTips } from '@/features/settings/hooks';
+import { mapAdminMainCategoriesToSettingsCategories } from '@/features/settings/utils';
 
 export default function SettingsPage() {
   const [update, setUpdate] = useState(false);
@@ -34,7 +41,7 @@ export default function SettingsPage() {
   const [openAddRole, setOpenAddRole] = useState(false);
   const [openAddTip, setOpenAddTip] = useState(false);
   const [openEditTip, setOpenEditTip] = useState(false);
-  const [selectedTip, setSelectedTip] = useState<any | null>(null);
+  const [selectedTip, setSelectedTip] = useState<AdminJobTip | null>(null);
   const [openEditRole, setOpenEditRole] = useState(false);
   const [openDeleteCategory, setOpenDeleteCategory] = useState(false);
   const [selectedRole, setSelectedRole] = useState<SettingsCategoryItem | null>(null);
@@ -45,11 +52,30 @@ export default function SettingsPage() {
   const [selectedUsers, setSelectedUsers] = useState<SettingsCategoryItem | false>(false);
   const [selectedJob, setSelectedJob] = useState<SettingsCategoryItem | null>(null);
 
-  const users: SettingsCategoryItem[] = settingsData;
+  const {
+    data: mainCategoriesResponse,
+    isLoading: isLoadingMainCategories,
+    error: mainCategoriesError,
+  } = useAdminMainCategories();
+
+  const {
+    data: jobTipsResponse,
+    isLoading: isLoadingJobTips,
+    error: jobTipsError,
+  } = useAdminJobTips();
+
+  const apiCategories = mapAdminMainCategoriesToSettingsCategories(mainCategoriesResponse?.data ?? []);
+
+  const users: SettingsCategoryItem[] = apiCategories.length > 0 ? apiCategories : settingsData;
+  const jobTips = jobTipsResponse?.data ?? [];
+  const jobTipsErrorMessage = jobTipsError?.message;
+  const isUsingFallbackCategories = apiCategories.length === 0;
+  const mainCategoriesErrorMessage = mainCategoriesError?.message;
 
   // Ratings & Badges actions
   const ratingsRef = useRef<any>(null);
   const [ratingsDirty, setRatingsDirty] = useState(false);
+  const [ratingsSaving, setRatingsSaving] = useState(false);
 
   const handleSuspendClick = (user: any) => {
     setSelectedUsers(user);
@@ -110,14 +136,7 @@ export default function SettingsPage() {
   return (
     <div className="py-6 space-y-4">
       <SlideOverModal open={openJob} onOpenChange={setOpenJob} title="Add category">
-        <AddMemberForm
-          onSuccess={() => setOpenJob(false)}
-          jobs={users}
-          onRequestDeleteCategory={() => {
-            setOpenJob(false); // close JobDetails first
-            setOpenDeleteCategory(true); // then open DeleteCategory modal
-          }}
-        />
+        <AddMemberForm onSuccess={() => setOpenJob(false)} />
       </SlideOverModal>
 
       <SlideOverModal open={update} onOpenChange={setUpdate} title="Edit category">
@@ -147,13 +166,21 @@ export default function SettingsPage() {
         {selectedTip && (
           <AddTipForm
             tip={selectedTip} // 👈 pass down the tip to prefill
-            onSuccess={() => setOpenEditTip(false)}
+            onSuccess={() => {
+              setOpenEditTip(false);
+              setSelectedTip(null);
+            }}
           />
         )}
       </SlideOverModal>
 
       <SlideOverModal open={openAddTip} onOpenChange={setOpenAddTip} title="Add tip">
-        <AddTipForm onSuccess={() => setOpenAddTip(false)} />
+        <AddTipForm
+          onSuccess={() => {
+            setOpenAddTip(false);
+            setSelectedTip(null);
+          }}
+        />
       </SlideOverModal>
 
       <EditRoleSlideOver open={openEditRole} onOpenChange={setOpenEditRole} role={selectedRole} />
@@ -166,8 +193,23 @@ export default function SettingsPage() {
         />
       </Modal>
 
-      <Modal open={openDelete} onOpenChange={setOpenDelete} title="Delete role">
-        <Delete onSuccess={() => setOpenDelete(false)} />
+      <Modal
+        open={openDelete}
+        onOpenChange={(isOpen) => {
+          setOpenDelete(isOpen);
+          if (!isOpen) {
+            setSelectedTip(null);
+          }
+        }}
+        title="Delete job tip"
+      >
+        <Delete
+          tip={selectedTip}
+          onSuccess={() => {
+            setOpenDelete(false);
+            setSelectedTip(null);
+          }}
+        />
       </Modal>
 
       {/* Tabs */}
@@ -203,15 +245,20 @@ export default function SettingsPage() {
             />
           </div>
 
+          {isLoadingMainCategories && isUsingFallbackCategories && (
+            <p className="px-6 text-sm text-[#757C91]">Loading categories…</p>
+          )}
+          {mainCategoriesErrorMessage && isUsingFallbackCategories && (
+            <p className="px-6 text-sm text-[#EA3829]">
+              Unable to load categories. Showing defaults instead. {mainCategoriesErrorMessage}
+            </p>
+          )}
+
           <JobsTable
             jobs={paginatedData}
             onOpenJobDetails={(job) => {
               setSelectedJob(job);
               setUpdate(true);
-            }}
-            onEdit={(row) => {
-              setSelectedRole(row);
-              setOpenEditRole(true);
             }}
           />
 
@@ -226,100 +273,18 @@ export default function SettingsPage() {
       )}
 
       {activeTab === 'chat-report' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-6 pt-2">
-            <h2 className="text-[#3B4152] text-lg font-bold">Chat Report Reasons</h2>
-          </div>
-          <ChatsReport
-            report={users}
-            onEditRole={(row) => {
-              setSelectedRole(row);
-              setOpenEditRole(true);
-            }}
-            handleDeleteClick={handleDeleteClick}
-          />
-        </div>
+        <ChatReportTab />
       )}
 
-      {activeTab === 'offer-declines' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-6 pt-2">
-            <h2 className="text-[#3B4152] text-lg font-bold">Offer Decline Reasons</h2>
-          </div>
-          <DeclinedOffers
-            report={users}
-            onEditRole={(row) => {
-              setSelectedRole(row);
-              setOpenEditRole(true);
-            }}
-            handleDeleteClick={handleDeleteClick}
-          />
-        </div>
-      )}
+      {activeTab === 'offer-declines' && <OfferDeclineTab />}
 
-      {activeTab === 'offer-cancelation' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-6 pt-2">
-            <h2 className="text-[#3B4152] text-lg font-bold">Offer Cancellation Reasons</h2>
-          </div>
-          <CancelOffers
-            report={users}
-            onEditRole={(row) => {
-              setSelectedRole(row);
-              setOpenEditRole(true);
-            }}
-            handleDeleteClick={handleDeleteClick}
-          />
-        </div>
-      )}
+      {activeTab === 'offer-cancelation' && <OfferCancellationTab />}
 
-      {activeTab === 'job-cancelation' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-6 pt-2">
-            <h2 className="text-[#3B4152] text-lg font-bold">Job Cancellation Reasons</h2>
-          </div>
-          <CancelJobs
-            report={users}
-            onEditRole={(row) => {
-              setSelectedRole(row);
-              setOpenEditRole(true);
-            }}
-            handleDeleteClick={handleDeleteClick}
-          />
-        </div>
-      )}
+      {activeTab === 'job-cancelation' && <JobCancellationTab />}
 
-      {activeTab === 'job-dispute-report' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-6 pt-2">
-            <h2 className="text-[#3B4152] text-lg font-bold">Job Dispute & Report Reasons</h2>
-          </div>
-          <JobsDisputes
-            report={users}
-            onEditRole={(row) => {
-              setSelectedRole(row);
-              setOpenEditRole(true);
-            }}
-            handleDeleteClick={handleDeleteClick}
-          />
-        </div>
-      )}
+      {activeTab === 'job-dispute-report' && <JobDisputeTab />}
 
-      {activeTab === 'delete-account' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-6 pt-2">
-            <h2 className="text-[#3B4152] text-lg font-bold">Delete Account Reasons</h2>
-          </div>
-          <DeleteAccounts
-            report={users}
-            onEditRole={(row) => {
-              setSelectedRole(row);
-              setOpenEditRole(true);
-            }}
-            handleDeleteClick={handleDeleteClick}
-          />
-        </div>
-      )}
+      {activeTab === 'delete-account' && <DeleteAccountTab />}
 
       {activeTab === 'ratings-badges' && (
         <div className="space-y-4">
@@ -329,52 +294,76 @@ export default function SettingsPage() {
               <Button
                 type="button"
                 variant="secondary"
+                disabled={ratingsSaving}
                 onClick={() => ratingsRef.current?.reset?.()}
-                className="px-4 py-2 border border-[#D6DBE7] bg-white text-[#017441] font-semibold"
+                className="px-4 py-2 border border-[#D6DBE7] bg-white text-[#017441] font-semibold disabled:opacity-60"
               >
                 Reset
               </Button>
               <Button
                 type="button"
-                disabled={!ratingsDirty}
-                onClick={() => {
-                  const data = ratingsRef.current?.save?.();
-                  if (data) {
-                    // Integrate API call here if available
-                    console.log('Ratings & Badges saved:', data);
+                disabled={!ratingsDirty || ratingsSaving}
+                onClick={async () => {
+                  if (!ratingsRef.current?.save) return;
+                  try {
+                    setRatingsSaving(true);
+                    const result = await ratingsRef.current.save();
+                    if (result.updated > 0) {
+                      toast.success('Account tiers updated', { duration: 2000 });
+                    } else {
+                      toast('No changes to save.', { duration: 2000 });
+                    }
+                  } catch (error) {
+                    const message =
+                      error instanceof Error ? error.message : 'Unable to save account tiers.';
+                    toast.error(message, { duration: 3000 });
+                  } finally {
+                    setRatingsSaving(false);
                   }
                 }}
               >
-                Save changes
+                {ratingsSaving ? 'Saving...' : 'Save changes'}
               </Button>
             </div>
           </div>
-          <RatingsBadges ref={ratingsRef} report={users} onDirtyChange={setRatingsDirty} />
+          <RatingsBadges ref={ratingsRef} onDirtyChange={setRatingsDirty} />
         </div>
       )}
 
       {activeTab === 'job-tips' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center px-6 pt-2">
-            <h2 className="text-[#3B4152] text-lg font-bold">
-              {users.filter((u) => u.jobTips).length} Job tips
-            </h2>
+            <h2 className="text-[#3B4152] text-lg font-bold">{jobTips.length} Job tips</h2>
             <Button
-              onClick={() => setOpenAddTip(true)}
+              onClick={() => {
+                setSelectedTip(null);
+                setOpenAddTip(true);
+              }}
               className="flex items-center gap-2 !py-2 !px-3"
             >
               <Plus size={18} />
               Add Tip
             </Button>
           </div>
-          <JobsTips
-            jobs={users}
-            onEditRole={(tip) => {
-              setSelectedTip(tip); // store the clicked tip
-              setOpenEditTip(true); // open the slide over modal
-            }}
-            handleDeleteClick={handleDeleteClick}
-          />
+          {isLoadingJobTips ? (
+            <p className="px-6 text-sm text-[#757C91]">Loading job tips…</p>
+          ) : jobTipsErrorMessage ? (
+            <p className="px-6 text-sm text-[#EA3829]">
+              Unable to load job tips. {jobTipsErrorMessage}
+            </p>
+          ) : (
+            <JobsTips
+              tips={jobTips}
+              onEditTip={(tip) => {
+                setSelectedTip(tip);
+                setOpenEditTip(true);
+              }}
+              onDeleteTip={(tip) => {
+                setSelectedTip(tip);
+                setOpenDelete(true);
+              }}
+            />
+          )}
         </div>
       )}
     </div>

@@ -1,25 +1,33 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { Button, Input, Textarea } from '@/components/ui';
 import { toast } from 'sonner';
-import type { SettingsCategoryItem } from '@/types/types';
+import type { AdminJobTip } from '@/features/settings/types';
+import { useCreateAdminJobTip, useUpdateAdminJobTip } from '@/features/settings/hooks';
 
 export interface AddTipFormProps {
   onSuccess?: () => void;
-  tip?: SettingsCategoryItem;
+  tip?: AdminJobTip | null;
 }
 
 export default function AddTipForm({ onSuccess, tip }: AddTipFormProps) {
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
 
-  const isDisabled = !title || !description || loading;
+  const createJobTipMutation = useCreateAdminJobTip();
+  const updateJobTipMutation = useUpdateAdminJobTip();
+
+  const isEditing = Boolean(tip?.uuid);
+  const isPending = createJobTipMutation.isPending || updateJobTipMutation.isPending;
+  const isDisabled = !title.trim() || !description.trim() || isPending;
 
   // 🔑 Keep state in sync when editing
   useEffect(() => {
     if (tip) {
-      setTitle(tip.jobTips.title || '');
-      setDescription(tip.jobTips.description || '');
+      setTitle(tip.title ?? '');
+      setDescription(tip.description ?? '');
+    } else {
+      setTitle('');
+      setDescription('');
     }
   }, [tip]);
 
@@ -34,13 +42,29 @@ export default function AddTipForm({ onSuccess, tip }: AddTipFormProps) {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isDisabled) return;
-    setLoading(true);
+
+    const payload = {
+      title: title.trim(),
+      description: description.trim(),
+    };
+
     try {
-      await new Promise((res) => setTimeout(res, 800));
-      toast.success(tip ? 'Saved changes' : 'Tip added', { duration: 2500 });
+      if (isEditing) {
+        if (!tip?.uuid) {
+          throw new Error('Missing job tip id.');
+        }
+        await updateJobTipMutation.mutateAsync({ uuid: tip.uuid, payload });
+        toast.success('Tip updated', { duration: 2500 });
+      } else {
+        await createJobTipMutation.mutateAsync(payload);
+        toast.success('Tip added', { duration: 2500 });
+        setTitle('');
+        setDescription('');
+      }
       onSuccess?.();
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to save job tip.';
+      toast.error(message, { duration: 3000 });
     }
   };
 
@@ -91,7 +115,7 @@ export default function AddTipForm({ onSuccess, tip }: AddTipFormProps) {
             disabled={isDisabled}
             className={`p-[11px] rounded-xl text-sm font-bold ${isDisabled ? 'bg-[#E5EAE7FF] text-[#A9AFC2] cursor-not-allowed' : 'bg-[#017441] text-white'}`}
           >
-            {loading ? (tip ? 'saving...' : 'Adding...') : tip ? 'Save changes' : 'Add tip'}
+            {isPending ? (tip ? 'Saving...' : 'Adding...') : tip ? 'Save changes' : 'Add tip'}
           </Button>
         </div>
       </div>

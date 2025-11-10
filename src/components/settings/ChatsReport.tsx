@@ -1,154 +1,142 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
-import { Button, Input, IconButton } from '@/components/ui';
-import { Trash2 } from 'lucide-react'; // icons
-import type { SettingsCategoryItem } from '@/types/types';
+import { useState } from 'react';
+import { Input, Button, IconButton } from '@/components/ui';
+import { Trash2 } from 'lucide-react';
+
+interface Reason {
+  uuid?: string;
+  name: string;
+}
+
+interface ReasonListProps {
+  title: string;
+  reasons: Reason[];
+  placeholder: string;
+  inputValue: string;
+  onInputChange: (value: string) => void;
+  onAdd?: (value: string) => void;
+  onDelete?: (reason: Reason) => void;
+}
+
+function ReasonList({
+  title,
+  reasons,
+  placeholder,
+  inputValue,
+  onInputChange,
+  onAdd,
+  onDelete,
+}: ReasonListProps) {
+  const disableAdd = !inputValue.trim();
+
+  return (
+    <div className="border-b border-[#F1F2F4] pb-6">
+      <label className="pb-4 block text-[#757C91] text-sm font-bold mb-1">{title}</label>
+      <div className="flex gap-4 items-center pb-6">
+        <Input
+          type="text"
+          value={inputValue}
+          onChange={(e) => onInputChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full p-[12px] bg-[#F9F9FB] text-sm rounded-xl focus:outline-none border border-transparent focus:border-[#D6DBE7]"
+        />
+        <Button
+          type="button"
+          disabled={disableAdd || !onAdd}
+          onClick={() => {
+            if (!disableAdd && onAdd) {
+              onAdd(inputValue.trim());
+            }
+          }}
+          className={disableAdd || !onAdd ? 'opacity-50 cursor-not-allowed' : ''}
+        >
+          Save
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {reasons.length === 0 ? (
+          <p className="text-sm text-[#A9AFC2]">No reasons available.</p>
+        ) : (
+          reasons.map((reason) => (
+            <div key={reason.uuid ?? reason.name} className="flex items-center gap-3">
+              <p className="w-full p-[16px] bg-[#F9F9FB] text-sm rounded-xl text-[#3B4152]">
+                {reason.name}
+              </p>
+              <IconButton
+                type="button"
+                onClick={() => onDelete?.(reason)}
+                className="bg-[#FEF6F6] w-fit p-[16px] rounded-xl flex items-center justify-center"
+                disabled={!onDelete}
+              >
+                <Trash2 size={16} className="text-[#F0443A]" />
+              </IconButton>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
 
 export interface ChatsReportProps {
-  report: SettingsCategoryItem[];
-  onEditRole?: (item: SettingsCategoryItem) => void;
-  onDeleteRole?: (item: SettingsCategoryItem) => void;
-  handleDeleteClick?: (item: SettingsCategoryItem) => void;
+  clientReasons: Reason[];
+  providerReasons: Reason[];
+  onAddClientReason?: (value: string) => Promise<void> | void;
+  onAddProviderReason?: (value: string) => Promise<void> | void;
+  onDeleteClientReason?: (reason: Reason) => Promise<void> | void;
+  onDeleteProviderReason?: (reason: Reason) => Promise<void> | void;
+  clientTitle?: string;
+  providerTitle?: string;
+  clientPlaceholder?: string;
+  providerPlaceholder?: string;
 }
 
 export default function ChatsReport({
-  report,
-  onEditRole,
-  onDeleteRole,
-  handleDeleteClick,
+  clientReasons,
+  providerReasons,
+  onAddClientReason,
+  onAddProviderReason,
+  onDeleteClientReason,
+  onDeleteProviderReason,
+  clientTitle = 'Reporting a Service provider',
+  providerTitle = 'Reporting a Client',
+  clientPlaceholder = 'Add new reason',
+  providerPlaceholder = 'Add new reason',
 }: ChatsReportProps) {
-  const items = report ?? [];
-  const [serviceProvider, setServiceProvider] = useState<string>('');
-  const [client, setClient] = useState<string>('');
-
-  const disableSaveProvider = !serviceProvider;
-  const disableSaveClient = !client;
-  const isEmpty = items.length === 0;
-
-  if (isEmpty) {
-    return <p className="text-gray-500">No wallet transactions found</p>;
-  }
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-  };
+  const [serviceProviderInput, setServiceProviderInput] = useState('');
+  const [clientInput, setClientInput] = useState('');
 
   return (
-    <div className="border-t border-[#F1F2F4] flex">
-      <form onSubmit={handleSubmit} className="border-r border-[#F1F2F4] w-full ">
-        <div className="px-6 py-6 space-y-3">
-          <div className="border-b border-[#F1F2F4] pb-6">
-            <label className="pb-4 block text-[#757C91] text-sm font-bold mb-1">
-              Reporting a Service provider
-            </label>
-            <div className="flex gap-4 items-center">
-              <Input
-                type="text"
-                value={serviceProvider}
-                onChange={(e) => setServiceProvider(e.target.value)}
-                placeholder="Add new reason"
-                className="w-full p-[12px] bg-[#F9F9FB] text-sm rounded-xl focus:outline-none border border-transparent focus:border-[#D6DBE7]"
-                required
-              />
-
-              <button
-                disabled={disableSaveProvider}
-                className={`p-[11px] text-sm font-bold ${disableSaveProvider ? ' text-[#A9AFC2] cursor-not-allowed' : ' text-[#017441]'}`}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="space-y-2 px-6 text-[#3B4152] font-semibold text-sm">
-            {items.map((reports) => (
-              <div key={reports.jobId} className="flex justify-between items-center gap-3">
-                <p className="w-full p-[16px] bg-[#F9F9FB] text-sm rounded-xl">
-                  {reports.reportReasons?.reportingServiceProvider}
-                </p>
-                <IconButton
-                  type="button"
-                  onClick={() => handleDeleteClick?.(reports)}
-                  className="bg-[#FEF6F6] w-fit p-[16px] rounded-xl flex items-center justify-center"
-                >
-                  <Trash2 size={16} className="text-[#F0443A]" />
-                </IconButton>
-              </div>
-            ))}
-            <div className="flex justify-between items-center gap-3">
-              <p className="w-full p-[16px] bg-[#F9F9FB] text-sm rounded-xl text-[#A9AFC2]">
-                Other
-              </p>
-              <IconButton
-                type="button"
-                className="bg-[#F9F9FB] w-fit p-[16px] rounded-xl flex items-center justify-center"
-              >
-                <Trash2 size={16} className="text-[#C0C5D6]" />
-              </IconButton>
-            </div>
-          </div>
-        </div>
-      </form>
-
-      <form onSubmit={handleSubmit} className=" w-full">
-        <div className="px-6 py-6 space-y-3">
-          <div className="border-b border-[#F1F2F4] pb-6">
-            <label className="pb-4 block text-[#757C91] text-sm font-bold mb-1">
-              Reporting a Client
-            </label>
-            <div className="flex gap-4 items-center">
-              <Input
-                type="text"
-                value={client}
-                onChange={(e) => setClient(e.target.value)}
-                placeholder="Add new reason"
-                className="w-full p-[12px] bg-[#F9F9FB] text-sm rounded-xl focus:outline-none border border-transparent focus:border-[#D6DBE7]"
-                required
-              />
-
-              <button
-                disabled={disableSaveClient}
-                className={`p-[11px] text-sm font-bold ${disableSaveClient ? ' text-[#A9AFC2] cursor-not-allowed' : ' text-[#017441]'}`}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="space-y-2 px-6 text-[#3B4152] font-semibold text-sm">
-            {items.map((reports) => (
-              <div key={reports.jobId} className="flex justify-between items-center gap-3">
-                <p className="w-full p-[16px] bg-[#F9F9FB] text-sm rounded-xl">
-                  {reports.reportReasons?.reportingClient}
-                </p>
-                <IconButton
-                  type="button"
-                  onClick={() => handleDeleteClick?.(reports)}
-                  className="bg-[#FEF6F6] w-fit p-[16px] rounded-xl flex items-center justify-center"
-                >
-                  <Trash2 size={16} className="text-[#F0443A]" />
-                </IconButton>
-              </div>
-            ))}
-            <div className="flex justify-between items-center gap-3">
-              <p className="w-full p-[16px] bg-[#F9F9FB] text-sm rounded-xl text-[#A9AFC2]">
-                Other
-              </p>
-              <IconButton
-                type="button"
-                className="bg-[#F9F9FB] w-fit p-[16px] rounded-xl flex items-center justify-center"
-              >
-                <Trash2 size={16} className="text-[#C0C5D6]" />
-              </IconButton>
-            </div>
-          </div>
-        </div>
-      </form>
+    <div className="border-t border-[#F1F2F4] flex flex-col md:flex-row">
+      <div className="border-b md:border-b-0 md:border-r border-[#F1F2F4] w-full px-6 py-6">
+        <ReasonList
+          title={clientTitle}
+          reasons={clientReasons}
+          placeholder={clientPlaceholder}
+          inputValue={serviceProviderInput}
+          onInputChange={(value) => setServiceProviderInput(value)}
+          onAdd={(value) => {
+            onAddClientReason?.(value);
+            setServiceProviderInput('');
+          }}
+          onDelete={onDeleteClientReason}
+        />
+      </div>
+      <div className="w-full px-6 py-6">
+        <ReasonList
+          title={providerTitle}
+          reasons={providerReasons}
+          placeholder={providerPlaceholder}
+          inputValue={clientInput}
+          onInputChange={(value) => setClientInput(value)}
+          onAdd={(value) => {
+            onAddProviderReason?.(value);
+            setClientInput('');
+          }}
+          onDelete={onDeleteProviderReason}
+        />
+      </div>
     </div>
   );
 }
