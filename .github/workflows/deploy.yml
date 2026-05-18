@@ -1,0 +1,122 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: 20
+  APP_DIR: /var/www/dailyhelp-admin
+  APP_NAME: dailyhelp-admin
+  RELEASE_NAME: release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.SSH_PORT || 22 }} "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Prepare release directory on server
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -p ${{ secrets.SSH_PORT || 22 }} \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "mkdir -p ${{ env.APP_DIR }}/releases/${{ env.RELEASE_NAME }} ${{ env.APP_DIR }}/shared"
+
+      - name: Rsync build to server
+        run: |
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT || 22 }}" \
+            ./ \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.APP_DIR }}/releases/${{ env.RELEASE_NAME }}/"
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          script: |
+            set -euo pipefail
+
+            APP_NAME="${{ env.APP_NAME }}"
+            APP_DIR="${{ env.APP_DIR }}"
+            RELEASES_DIR="${APP_DIR}/releases"
+            SHARED_DIR="${APP_DIR}/shared"
+            RELEASE="${RELEASES_DIR}/${{ env.RELEASE_NAME }}"
+
+            if [ -f "${SHARED_DIR}/.env" ]; then
+              ln -sfn "${SHARED_DIR}/.env" "${RELEASE}/.env"
+            fi
+
+            cd "${RELEASE}"
+            npm ci --omit=dev
+
+            ln -sfn "${RELEASE}" "${APP_DIR}/current"
+
+            cd "${APP_DIR}/current"
+
+            # Delete the existing PM2 process so the new one picks up the latest
+            # release directory as its execution cwd.
+            pm2 delete "${APP_NAME}" 2>/dev/null || true
+            pm2 start ecosystem.config.js --env production --only "${APP_NAME}"
+            pm2 save --force
+
+            CURRENT="$(readlink -f "${APP_DIR}/current" || true)"
+            find "${RELEASES_DIR}" -maxdepth 1 -mindepth 1 -type d -printf '%T@ %p\n' \
+              | sort -n \
+              | head -n -3 \
+              | awk '{ $1=""; sub(/^ /,""); print }' \
+              | while read -r dir; do
+                  [ "${dir}" = "${CURRENT}" ] && continue
+                  rm -rf "${dir}"
+                done
