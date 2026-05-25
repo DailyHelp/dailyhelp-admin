@@ -20,6 +20,19 @@ You can start editing the page by modifying `app/page.js`. The page auto-updates
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Deployment Secrets
+
+Required GitHub Actions secrets for CI/CD deploy:
+
+- `NEXT_PUBLIC_API_BASE_URL`
+- `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`
+- `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`
+- `SSH_HOST`
+- `SSH_PORT`
+- `SSH_USER`
+- `SSH_KEY`
+- `SSH_HOST_KEY` (pinned known_hosts line, e.g. `host ssh-ed25519 AAAA...`)
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

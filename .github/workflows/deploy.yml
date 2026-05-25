@@ -6,6 +6,13 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: dailyhelp-admin-production
+  cancel-in-progress: false
+
 env:
   NODE_VERSION: 20
   APP_DIR: /var/www/dailyhelp-admin
@@ -18,6 +25,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,87 +51,113 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Package release artifact
+        run: |
+          tar -czf release.tar.gz \
+            .next \
+            public \
+            package.json \
+            package-lock.json \
+            next.config.mjs \
+            ecosystem.config.js
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dailyhelp-admin-release
+          path: release.tar.gz
+          if-no-files-found: error
+
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Use Node
-        uses: actions/setup-node@v4
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          name: dailyhelp-admin-release
+          path: .
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Validate required environment secrets
+      - name: Validate deploy transport secrets
         run: |
-          : "${NEXT_PUBLIC_API_BASE_URL:?Missing NEXT_PUBLIC_API_BASE_URL secret}"
-          : "${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME:?Missing NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME secret}"
-          : "${NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET:?Missing NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET secret}"
-
-      - name: Build
-        run: npm run build
+          SSH_HOST="${{ secrets.SSH_HOST }}"
+          SSH_USER="${{ secrets.SSH_USER }}"
+          SSH_KEY="${{ secrets.SSH_KEY }}"
+          SSH_HOST_KEY="${{ secrets.SSH_HOST_KEY }}"
+          : "${SSH_HOST:?Missing SSH_HOST secret}"
+          : "${SSH_USER:?Missing SSH_USER secret}"
+          : "${SSH_KEY:?Missing SSH_KEY secret}"
+          : "${SSH_HOST_KEY:?Missing SSH_HOST_KEY secret}"
 
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p ${{ secrets.SSH_PORT || 22 }} "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          printf '%s\n' "${{ secrets.SSH_HOST_KEY }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
       - name: Prepare release directory on server
         run: |
           ssh -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=${HOME}/.ssh/known_hosts \
+            -o PasswordAuthentication=no \
+            -o PubkeyAuthentication=yes \
             -p ${{ secrets.SSH_PORT || 22 }} \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
             "mkdir -p ${{ env.APP_DIR }}/releases/${{ env.RELEASE_NAME }} ${{ env.APP_DIR }}/shared"
 
-      - name: Rsync build to server
+      - name: Upload release artifact to server
         run: |
           rsync -az --delete \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='node_modules' \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT || 22 }}" \
-            ./ \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.APP_DIR }}/releases/${{ env.RELEASE_NAME }}/"
+            -e "ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${HOME}/.ssh/known_hosts -o PasswordAuthentication=no -o PubkeyAuthentication=yes -p ${{ secrets.SSH_PORT || 22 }}" \
+            ./release.tar.gz \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.APP_DIR }}/releases/${{ env.RELEASE_NAME }}/release.tar.gz"
 
       - name: Deploy on server
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || '22' }}
-          script: |
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=${HOME}/.ssh/known_hosts \
+            -o PasswordAuthentication=no \
+            -o PubkeyAuthentication=yes \
+            -p ${{ secrets.SSH_PORT || 22 }} \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "APP_NAME='${{ env.APP_NAME }}' APP_DIR='${{ env.APP_DIR }}' RELEASE_NAME='${{ env.RELEASE_NAME }}' bash -s" <<'EOF'
             set -euo pipefail
 
-            APP_NAME="${{ env.APP_NAME }}"
-            APP_DIR="${{ env.APP_DIR }}"
             RELEASES_DIR="${APP_DIR}/releases"
             SHARED_DIR="${APP_DIR}/shared"
-            RELEASE="${RELEASES_DIR}/${{ env.RELEASE_NAME }}"
+            RELEASE="${RELEASES_DIR}/${RELEASE_NAME}"
 
-            if [ -f "${SHARED_DIR}/.env" ]; then
-              ln -sfn "${SHARED_DIR}/.env" "${RELEASE}/.env"
+            if [ ! -f "${SHARED_DIR}/.env" ]; then
+              echo "Missing ${SHARED_DIR}/.env"
+              exit 1
             fi
 
+            tar -xzf "${RELEASE}/release.tar.gz" -C "${RELEASE}"
+            rm -f "${RELEASE}/release.tar.gz"
+
+            ln -sfn "${SHARED_DIR}/.env" "${RELEASE}/.env"
+
             cd "${RELEASE}"
-            npm ci --omit=dev
+            npm ci --omit=dev --no-audit --fund=false
 
             ln -sfn "${RELEASE}" "${APP_DIR}/current"
 
             cd "${APP_DIR}/current"
 
-            # Delete the existing PM2 process so the new one picks up the latest
-            # release directory as its execution cwd.
             pm2 delete "${APP_NAME}" 2>/dev/null || true
-            pm2 start ecosystem.config.js --env production --only "${APP_NAME}"
+            pm2 start ecosystem.config.js --env production --only "${APP_NAME}" --update-env
             pm2 save --force
 
             CURRENT="$(readlink -f "${APP_DIR}/current" || true)"
@@ -135,3 +169,4 @@ jobs:
                   [ "${dir}" = "${CURRENT}" ] && continue
                   rm -rf "${dir}"
                 done
+          EOF
