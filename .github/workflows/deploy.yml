@@ -76,18 +76,19 @@ jobs:
           SSH_HOST: ${{ secrets.VPS_HOST }}
           SSH_PORT_RAW: ${{ secrets.DEV_SSH_PORT }}
         run: |
+          : "${SSH_KEY:?VPS_SSH_KEY secret is not set}"
+          : "${SSH_HOST:?VPS_HOST secret is not set}"
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           PORT="${SSH_PORT_RAW:-22}"
           echo "SSH_PORT=$PORT" >> $GITHUB_ENV
           echo "SSH_HOST=$SSH_HOST" >> $GITHUB_ENV
-          ssh-keyscan -t ed25519 -p "$PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -t ed25519 -p "$PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Deploy via wrapper
         env:
           SSH_USER: ${{ secrets.VPS_USER }}
-          DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
         run: |
           RELEASE="release-$(date +%s)-${{ github.run_number }}-${{ github.sha }}"
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
