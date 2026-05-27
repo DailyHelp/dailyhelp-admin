@@ -15,9 +15,8 @@ concurrency:
 
 env:
   NODE_VERSION: 20
-  APP_DIR: /var/www/dailyhelp-admin
   APP_NAME: dailyhelp-admin
-  RELEASE_NAME: release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+  RELEASE_ARCHIVE: dailyhelp-admin-release.tar.gz
   NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
   NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET }}
@@ -27,17 +26,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Use Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Validate required environment secrets
         run: |
@@ -45,27 +39,23 @@ jobs:
           : "${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME:?Missing NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME secret}"
           : "${NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET:?Missing NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET secret}"
 
+      - run: npm ci
+
       - name: Lint
         run: npm run lint --if-present
 
-      - name: Build
-        run: npm run build
+      - run: npm run build
 
       - name: Package release artifact
         run: |
-          tar -czf release.tar.gz \
-            .next \
-            public \
-            package.json \
-            package-lock.json \
-            next.config.mjs \
-            ecosystem.config.js
+          tar --owner=0 --group=0 --mode='go-w' -czf "${RELEASE_ARCHIVE}" \
+            .next public package.json package-lock.json \
+            next.config.mjs ecosystem.config.js
 
-      - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: dailyhelp-admin-release
-          path: release.tar.gz
+          path: ${{ env.RELEASE_ARCHIVE }}
           if-no-files-found: error
 
   deploy:
@@ -75,98 +65,33 @@ jobs:
     timeout-minutes: 20
     environment: production
     steps:
-      - name: Download release artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: dailyhelp-admin-release
           path: .
 
-      - name: Validate deploy transport secrets
-        run: |
-          SSH_HOST="${{ secrets.SSH_HOST }}"
-          SSH_USER="${{ secrets.SSH_USER }}"
-          SSH_KEY="${{ secrets.SSH_KEY }}"
-          SSH_HOST_KEY="${{ secrets.SSH_HOST_KEY }}"
-          : "${SSH_HOST:?Missing SSH_HOST secret}"
-          : "${SSH_USER:?Missing SSH_USER secret}"
-          : "${SSH_KEY:?Missing SSH_KEY secret}"
-          : "${SSH_HOST_KEY:?Missing SSH_HOST_KEY secret}"
-
       - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.DEV_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEV_SSH_HOST }}
+          SSH_PORT_RAW: ${{ secrets.DEV_SSH_PORT }}
         run: |
           mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "${{ secrets.SSH_HOST_KEY }}" > ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+          PORT="${SSH_PORT_RAW:-22}"
+          echo "SSH_PORT=$PORT" >> $GITHUB_ENV
+          echo "SSH_HOST=$SSH_HOST" >> $GITHUB_ENV
+          ssh-keyscan -t ed25519 -p "$PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Prepare release directory on server
+      - name: Deploy via wrapper
+        env:
+          SSH_USER: ${{ secrets.DEV_SSH_USER }}
         run: |
-          ssh -i ~/.ssh/deploy_key \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile=${HOME}/.ssh/known_hosts \
-            -o PasswordAuthentication=no \
-            -o PubkeyAuthentication=yes \
-            -p ${{ secrets.SSH_PORT || 22 }} \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "mkdir -p ${{ env.APP_DIR }}/releases/${{ env.RELEASE_NAME }} ${{ env.APP_DIR }}/shared"
+          RELEASE="release-$(date +%s)-${{ github.run_number }}-${{ github.sha }}"
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "deploy $APP_NAME $RELEASE" < "${RELEASE_ARCHIVE}"
 
-      - name: Upload release artifact to server
-        run: |
-          rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${HOME}/.ssh/known_hosts -o PasswordAuthentication=no -o PubkeyAuthentication=yes -p ${{ secrets.SSH_PORT || 22 }}" \
-            ./release.tar.gz \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.APP_DIR }}/releases/${{ env.RELEASE_NAME }}/release.tar.gz"
-
-      - name: Deploy on server
-        run: |
-          ssh -i ~/.ssh/deploy_key \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile=${HOME}/.ssh/known_hosts \
-            -o PasswordAuthentication=no \
-            -o PubkeyAuthentication=yes \
-            -p ${{ secrets.SSH_PORT || 22 }} \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "APP_NAME='${{ env.APP_NAME }}' APP_DIR='${{ env.APP_DIR }}' RELEASE_NAME='${{ env.RELEASE_NAME }}' bash -s" <<'EOF'
-            set -euo pipefail
-
-            RELEASES_DIR="${APP_DIR}/releases"
-            SHARED_DIR="${APP_DIR}/shared"
-            RELEASE="${RELEASES_DIR}/${RELEASE_NAME}"
-
-            if [ ! -f "${SHARED_DIR}/.env" ]; then
-              echo "Missing ${SHARED_DIR}/.env"
-              exit 1
-            fi
-
-            tar -xzf "${RELEASE}/release.tar.gz" -C "${RELEASE}"
-            rm -f "${RELEASE}/release.tar.gz"
-
-            ln -sfn "${SHARED_DIR}/.env" "${RELEASE}/.env"
-
-            cd "${RELEASE}"
-            npm ci --omit=dev --no-audit --fund=false
-
-            ln -sfn "${RELEASE}" "${APP_DIR}/current"
-
-            cd "${APP_DIR}/current"
-
-            pm2 delete "${APP_NAME}" 2>/dev/null || true
-            pm2 start ecosystem.config.js --env production --only "${APP_NAME}" --update-env
-            pm2 save --force
-
-            CURRENT="$(readlink -f "${APP_DIR}/current" || true)"
-            find "${RELEASES_DIR}" -maxdepth 1 -mindepth 1 -type d -printf '%T@ %p\n' \
-              | sort -n \
-              | head -n -3 \
-              | awk '{ $1=""; sub(/^ /,""); print }' \
-              | while read -r dir; do
-                  [ "${dir}" = "${CURRENT}" ] && continue
-                  rm -rf "${dir}"
-                done
-          EOF
+      - name: Tear down SSH
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
